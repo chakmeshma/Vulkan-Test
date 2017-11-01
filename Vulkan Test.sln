@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27004.2005
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Vulkan Test", "Vulkan Test\Vulkan Test.vcxproj", "{7A6E8B93-7276-4328-9371-D57CEF0AF758}"
+EndProject
+Global
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7A6E8B93-7276-4328-9371-D57CEF0AF758}.Debug|x64.ActiveCfg = Debug|x64
+		{7A6E8B93-7276-4328-9371-D57CEF0AF758}.Debug|x64.Build.0 = Debug|x64
+		{7A6E8B93-7276-4328-9371-D57CEF0AF758}.Debug|x86.ActiveCfg = Debug|Win32
+		{7A6E8B93-7276-4328-9371-D57CEF0AF758}.Debug|x86.Build.0 = Debug|Win32
+		{7A6E8B93-7276-4328-9371-D57CEF0AF758}.Release|x64.ActiveCfg = Release|x64
+		{7A6E8B93-7276-4328-9371-D57CEF0AF758}.Release|x64.Build.0 = Release|x64
+		{7A6E8B93-7276-4328-9371-D57CEF0AF758}.Release|x86.ActiveCfg = Release|Win32
+		{7A6E8B93-7276-4328-9371-D57CEF0AF758}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E59FE9AC-388D-4905-B2F2-FC0066804528}
+	EndGlobalSection
+EndGlobal
