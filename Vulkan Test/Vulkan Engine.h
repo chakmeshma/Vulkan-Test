@@ -8,6 +8,15 @@
 #include "Vulkan Engine Exception.h"
 #include "POSIXAllocator.h"
 
+const uint16_t MAX_DEFAULT_ARRAY_SIZE = 10;
+const uint16_t MAX_BUFFER_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+const uint16_t MAX_IMAGE_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+const uint16_t MAX_IMAGE_VIEW_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+const uint16_t MAX_DEVICE_MEMORY_ALLOCATION_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+const uint16_t MAX_SPARSE_IMAGE_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+const uint16_t MAX_SPARSE_IMAGE_MEMORY_REQUIREMENTS_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+const uint16_t MAX_SPARSE_IMAGE_FORMAT_PROPERTIES_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+
 class VulkanEngine {
 public:
 	VulkanEngine();
@@ -72,25 +81,27 @@ private:
 	std::vector<VkExtensionProperties> deviceExtensions;
 	std::vector<VkExtensionProperties> instanceExtensions;
 	VkBufferCreateInfo bufferCreateInfo = {};
-	VkBuffer *buffers;
+	VkBuffer *buffers;// = new VkBuffer[MAX_BUFFER_ARRAY_SIZE];
 	VkImageFormatProperties imageFormatProperties = {};
 	VkFormatProperties formatProperties = {};
 	VkImageCreateInfo imageCreateInfo = {};
-	VkImage *images = new VkImage();
+	VkImage *images;// = new VkImage[MAX_IMAGE_ARRAY_SIZE];
 	VkImageViewCreateInfo imageViewCreateInfo = {};
-	VkImageView *imageViews = new VkImageView();
+	VkImageView *imageViews;// = new VkImageView[MAX_IMAGE_VIEW_ARRAY_SIZE];
 	uint32_t memoryTypeCount = 0;
 	VkMemoryAllocateInfo deviceMemoryAllocateInfo = {};
-	VkDeviceMemory* memories = new VkDeviceMemory();
+	VkDeviceMemory* memories;// = new VkDeviceMemory[MAX_DEVICE_MEMORY_ALLOCATION_ARRAY_SIZE];
 	uint32_t deviceLocalExclusiveMemoryTypeIndex = -1;
 	VkDeviceSize memoryCommittedBytesCount = 0;
 	VkMappedMemoryRange memoryFlushRange = {};
 	VkMemoryRequirements imageMemoryRequirements = {};
-	VkImage *sparseImages = new VkImage();
-	VkSparseImageMemoryRequirements sparseImageMemoryRequirements = {};
-	VkImageCreateInfo sparseImageCreateInfo = { };
+	VkImage *sparseImages;// VkImage[MAX_SPARSE_IMAGE_ARRAY_SIZE];
+	VkSparseImageMemoryRequirements *sparseImageMemoryRequirements;// = new VkSparseImageMemoryRequirements[MAX_SPARSE_IMAGE_MEMORY_REQUIREMENTS_ARRAY_SIZE];
 	uint32_t sparseMemoryRequirementsCount = 0;
+	VkImageCreateInfo sparseImageCreateInfo = { };
 	uint32_t memoryAllocationSize = 1024 * 1024 * 1024; //1GB
+	VkSparseImageFormatProperties *physicalDeviceSparseImageFormatProperties;// = new VkSparseImageFormatProperties[MAX_SPARSE_IMAGE_FORMAT_PROPERTIES_ARRAY_SIZE];
+	uint32_t physicalDeviceSparseImageFormatPropertiesCount = 0;
 
 	void init();
 	void createInstance();
@@ -100,6 +111,7 @@ private:
 	void terminate();
 	void createLogicalDevice();
 	void getPhysicalDeviceImageFormatProperties();
+	void getPhysicalDeviceSparseImageFormatProperties();
 	void createBuffer();
 	void createImage();
 	void createImageView();

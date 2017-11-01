@@ -2,7 +2,6 @@
 #include <Windows.h>
 #include <iostream>
 #include "Vulkan Engine.h"
-#include "Vulkan Engine Exception.h"
 
 VulkanEngine *engine = nullptr;
 

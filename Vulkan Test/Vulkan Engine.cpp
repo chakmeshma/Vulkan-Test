@@ -95,6 +95,7 @@ void VulkanEngine::init() {
 	showDeviceExtensions();
 	createBuffer();
 	getPhysicalDeviceImageFormatProperties();
+	getPhysicalDeviceSparseImageFormatProperties();
 	createImage();
 	createImageView();
 	createSparseImage();
@@ -270,7 +271,7 @@ void VulkanEngine::terminate() {
 	{
 		vkDestroyDevice(logicalDevices[0], &deviceTerminationCallbacks);
 
-		std::cout << "Logical Device destroyed\n";
+		std::cout << "Logical Device destroyed.\n";
 	}
 	lock3.unlock();
 	lock3.release();
@@ -378,11 +379,13 @@ void VulkanEngine::createImage() {
 	imageCreateInfo.queueFamilyIndexCount = 0;
 	imageCreateInfo.pQueueFamilyIndices = nullptr;
 
+	images = new VkImage[1];
+
 	VkResult result = vkCreateImage(logicalDevices[0], &imageCreateInfo, &imageCreationCallbacks, images);
 
 	switch (result) {
 	case VK_SUCCESS:
-		std::cout << "Image created successfully.\n";
+		std::cout << "Image (" << 1024 << "x" << 1024 << ") created successfully.\n";
 		break;
 	default:
 		throw VulkanException("Image creation failed.");
@@ -437,6 +440,8 @@ void VulkanEngine::createImageView() {
 	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
 	imageViewCreateInfo.subresourceRange.layerCount = 0;
 
+	imageViews = new VkImageView[1];
+
 	VkResult result = vkCreateImageView(logicalDevices[0], &imageViewCreateInfo, &imageViewCreationCallbacks, imageViews);
 
 	switch (result) {
@@ -455,6 +460,8 @@ void VulkanEngine::allocateMapDeviceMemory() {
 	deviceMemoryAllocateInfo.memoryTypeIndex = deviceLocalExclusiveMemoryTypeIndex;
 
 	VkResult result;
+
+	memories = new VkDeviceMemory[1];
 
 	std::unique_lock<std::mutex> lock5(mtxMemoryHandle);
 	{
@@ -588,37 +595,42 @@ void VulkanEngine::createSparseImage() {
 	sparseImageCreateInfo.pNext = nullptr;
 	sparseImageCreateInfo.flags = VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT | VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
 	sparseImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-	sparseImageCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	sparseImageCreateInfo.format = VK_FORMAT_R16G16B16A16_UNORM;
 	sparseImageCreateInfo.extent.width = 1024;
 	sparseImageCreateInfo.extent.height = 1024;
 	sparseImageCreateInfo.extent.depth = 1;
-	sparseImageCreateInfo.arrayLayers = 1;
+	sparseImageCreateInfo.arrayLayers = 10;
 	sparseImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	sparseImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	sparseImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	sparseImageCreateInfo.mipLevels = 1;
+	sparseImageCreateInfo.mipLevels = imageFormatProperties.maxMipLevels;
 	sparseImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	sparseImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	sparseImageCreateInfo.queueFamilyIndexCount = 0;
 	sparseImageCreateInfo.pQueueFamilyIndices = nullptr;
 
+	sparseImages = new VkImage[1];
+
 	VkResult result = vkCreateImage(logicalDevices[0], &sparseImageCreateInfo, &imageCreationCallbacks, sparseImages);
 
 	switch (result) {
 	case VK_SUCCESS:
-		std::cout << "Sparse Image created successfully.\n";
+		std::cout << "Sparse Image (" << 1024 << "x" << 1024 << ") created successfully.\n";
 		break;
 	default:
 		throw VulkanException("Sparse Image creation failed.");
 	}
 
 	vkGetImageSparseMemoryRequirements(logicalDevices[0], sparseImages[0], &sparseMemoryRequirementsCount, nullptr);
-	vkGetImageSparseMemoryRequirements(logicalDevices[0], sparseImages[0], &sparseMemoryRequirementsCount, &sparseImageMemoryRequirements);
+
+	sparseImageMemoryRequirements = new VkSparseImageMemoryRequirements[sparseMemoryRequirementsCount];
+
+	vkGetImageSparseMemoryRequirements(logicalDevices[0], sparseImages[0], &sparseMemoryRequirementsCount, sparseImageMemoryRequirements);
 
 	std::cout << "Sparse Image Memory Requirements:\n";
 
 	for (uint32_t i = 0; i < sparseMemoryRequirementsCount; i++) {
-		VkSparseImageMemoryRequirements sparseImageMemoryRequirementsElement = (&sparseImageMemoryRequirements)[i];
+		VkSparseImageMemoryRequirements sparseImageMemoryRequirementsElement = sparseImageMemoryRequirements[i];
 
 		std::string aspectMaskString = "";
 
@@ -661,5 +673,83 @@ void VulkanEngine::createSparseImage() {
 		std::cout << "\tFlags: " << flagsString << std::endl;
 
 		std::cout << "\tFirst Mip-Tail Level: " << sparseImageMemoryRequirementsElement.imageMipTailFirstLod << std::endl;
+		std::cout << "\tFirst Mip-Tail Size: " << sparseImageMemoryRequirementsElement.imageMipTailSize << std::endl;
+		std::cout << "\tFirst Mip-Tail Offset (in memory binding region): " << sparseImageMemoryRequirementsElement.imageMipTailOffset << std::endl;
+		std::cout << "\tFirst Mip-Tail Stride (between deviant miptails of array): " << sparseImageMemoryRequirementsElement.imageMipTailStride << std::endl;
+
+	}
+}
+
+
+
+//sparseImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+//sparseImageCreateInfo.pNext = nullptr;
+//sparseImageCreateInfo.flags = VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT | VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
+//sparseImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+//sparseImageCreateInfo.format = VK_FORMAT_R16G16B16A16_UNORM;
+//sparseImageCreateInfo.extent.width = 1024;
+//sparseImageCreateInfo.extent.height = 1024;
+//sparseImageCreateInfo.extent.depth = 1;
+//sparseImageCreateInfo.arrayLayers = 10;
+//sparseImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+//sparseImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+//sparseImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+//sparseImageCreateInfo.mipLevels = imageFormatProperties.maxMipLevels;
+//sparseImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//sparseImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+//sparseImageCreateInfo.queueFamilyIndexCount = 0;
+//sparseImageCreateInfo.pQueueFamilyIndices = nullptr;
+
+
+void VulkanEngine::getPhysicalDeviceSparseImageFormatProperties() {
+	vkGetPhysicalDeviceSparseImageFormatProperties(physicalDevices[0], VK_FORMAT_R16G16B16A16_UNORM, VK_IMAGE_TYPE_2D, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_TILING_OPTIMAL, &physicalDeviceSparseImageFormatPropertiesCount, nullptr);
+
+	physicalDeviceSparseImageFormatProperties = new VkSparseImageFormatProperties[physicalDeviceSparseImageFormatPropertiesCount];
+
+	vkGetPhysicalDeviceSparseImageFormatProperties(physicalDevices[0], VK_FORMAT_R16G16B16A16_UNORM, VK_IMAGE_TYPE_2D, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_TILING_OPTIMAL, &physicalDeviceSparseImageFormatPropertiesCount, physicalDeviceSparseImageFormatProperties);
+
+	std::cout << "Physical Device support extent pertaining to sparse image format VK_FORMAT_R16G16B16A16_UNORM(2D) with optimal tiling usable as source and destination of transfer commands, allowing image view creation off itself, with one multisampling:\n";
+
+	for (uint32_t i = 0; i < physicalDeviceSparseImageFormatPropertiesCount; i++) {
+
+		std::string aspectMaskString = "";
+
+		if ((physicalDeviceSparseImageFormatProperties[i].aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) != 0) {
+			aspectMaskString += "COLOR_BIT ";
+		}
+
+		if ((physicalDeviceSparseImageFormatProperties[i].aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != 0) {
+			aspectMaskString += "DEPTH_BIT ";
+		}
+
+		if ((physicalDeviceSparseImageFormatProperties[i].aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) != 0) {
+			aspectMaskString += "STENCIL_BIT ";
+		}
+
+		if ((physicalDeviceSparseImageFormatProperties[i].aspectMask & VK_IMAGE_ASPECT_METADATA_BIT) != 0) {
+			aspectMaskString += "METADATA_BIT ";
+		}
+
+		std::cout << "\tApplied to following aspects: " << aspectMaskString << std::endl;
+
+		std::cout << "\tImage Granularity Width: " << physicalDeviceSparseImageFormatProperties[i].imageGranularity.width << std::endl;
+		std::cout << "\tImage Granularity Height: " << physicalDeviceSparseImageFormatProperties[i].imageGranularity.height << std::endl;
+		std::cout << "\tImage Granularity Depth: " << physicalDeviceSparseImageFormatProperties[i].imageGranularity.depth << std::endl;
+
+		std::string flagsString = "";
+
+		if ((physicalDeviceSparseImageFormatProperties[i].flags & VK_SPARSE_IMAGE_FORMAT_SINGLE_MIPTAIL_BIT) != 0) {
+			flagsString += "SINGLE_MIPTAIL ";
+		}
+
+		if ((physicalDeviceSparseImageFormatProperties[i].flags & VK_SPARSE_IMAGE_FORMAT_ALIGNED_MIP_SIZE_BIT) != 0) {
+			flagsString += "ALIGNED_MIP_SIZE ";
+		}
+
+		if ((physicalDeviceSparseImageFormatProperties[i].flags & VK_SPARSE_IMAGE_FORMAT_NONSTANDARD_BLOCK_SIZE_BIT) != 0) {
+			flagsString += "NONSTANDARD_BLOCK_SIZE ";
+		}
+
+		std::cout << "\tFlags: " << flagsString << std::endl;
 	}
 }
