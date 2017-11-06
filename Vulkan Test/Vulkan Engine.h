@@ -1,5 +1,7 @@
 #pragma once
 
+#define VK_USE_PLATFORM_WIN32_KHR
+
 #include <string>
 #include <iostream>
 #include <vector>
@@ -19,9 +21,9 @@ const uint16_t MAX_SPARSE_IMAGE_FORMAT_PROPERTIES_ARRAY_SIZE = MAX_DEFAULT_ARRAY
 
 class VulkanEngine {
 public:
-	VulkanEngine();
+	VulkanEngine(HINSTANCE hInstance, HWND windowHandle);
 	~VulkanEngine();
-	void showInstanceExtensions();
+	void getInstanceExtensions();
 	void showDeviceExtensions();
 	static std::string getVersionString(uint32_t versionBitmask);
 private:
@@ -40,6 +42,8 @@ private:
 	POSIXAllocator* memoryDeallocationAllocator;
 	POSIXAllocator* sparseImageCreationAllocator;
 	POSIXAllocator* sparseImageTerminationAllocator;
+	POSIXAllocator* surfaceCreationAllocator;
+	POSIXAllocator* swapchainCreationAllocator;
 	VkAllocationCallbacks instanceCrationCallbacks;
 	VkAllocationCallbacks deviceCreationCallbacks;
 	VkAllocationCallbacks deviceTerminationCallbacks;
@@ -54,6 +58,8 @@ private:
 	VkAllocationCallbacks memoryDeallocationCallbacks;
 	VkAllocationCallbacks sparseImageCreationCallbacks;
 	VkAllocationCallbacks sparseImageTerminationCallbacks;
+	VkAllocationCallbacks surfaceCreationCallbacks;
+	VkAllocationCallbacks swapchainCreationCallbacks;
 	VkInstance instance;
 	std::mutex mtxLogicalDeviceHandle;
 	std::mutex mtxMemoryHandle;
@@ -102,10 +108,28 @@ private:
 	uint32_t memoryAllocationSize = 1024 * 1024 * 1024; //1GB
 	VkSparseImageFormatProperties *physicalDeviceSparseImageFormatProperties;// = new VkSparseImageFormatProperties[MAX_SPARSE_IMAGE_FORMAT_PROPERTIES_ARRAY_SIZE];
 	uint32_t physicalDeviceSparseImageFormatPropertiesCount = 0;
+	VkFormat imageFormat = VK_FORMAT_R32G32B32A32_UINT;
+	std::string imageFormatString = "unsigned int R32G32B32A32";
+	VkQueue queue = { };
+	HINSTANCE hInstance;
+	HWND windowHandle;
+	VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
+	VkSurfaceKHR surface;
+	VkSwapchainKHR swapchain;
+	VkSwapchainCreateInfoKHR swapchainCreateInfo = {};
+	VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
+	VkBool32 physicalDeviceSurfaceSupported = VK_FALSE;
+	uint32_t surfaceSupportedFormatsCount = 0;
+	VkSurfaceFormatKHR *surfaceSupportedFormats;
+	uint32_t surfaceSupportedPresentModesCount = 0;
+	VkPresentModeKHR *surfaceSupportedPresentModes;
+	uint32_t swapchainImagesCount = 0;
+	VkImage *swapchainImages;
 
 	void init();
 	void createInstance();
-	void getLayers();
+	void getInstanceLayers();
+	void getDeviceLayers();
 	void enumeratePhysicalDevices();
 	void getPhysicalDevicePropertiesAndFeatures();
 	void terminate();
@@ -116,7 +140,11 @@ private:
 	void createImage();
 	void createImageView();
 	void createSparseImage();
-	void allocateMapDeviceMemory();
+	void allocateDeviceMemory();
 	void getImageMemoryRequirements();
 	void bindImageMemory();
+	void getQueue();
+	void getQueueFamilyPresentationSupport();
+	void createSurface();
+	void createSwapchain();
 };

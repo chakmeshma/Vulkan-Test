@@ -2,7 +2,10 @@
 
 #pragma comment(lib, "vulkan-1.lib")
 
-VulkanEngine::VulkanEngine() {
+VulkanEngine::VulkanEngine(HINSTANCE hInstance, HWND windowHandle) {
+	this->hInstance = hInstance;
+	this->windowHandle = windowHandle;
+
 	init();
 }
 
@@ -10,7 +13,7 @@ VulkanEngine::~VulkanEngine() {
 	terminate();
 }
 
-void VulkanEngine::showInstanceExtensions() {
+void VulkanEngine::getInstanceExtensions() {
 	vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionsCount, nullptr);
 
 	instanceExtensions.resize(instanceExtensionsCount);
@@ -55,7 +58,8 @@ std::string VulkanEngine::getVersionString(uint32_t versionBitmask) {
 }
 
 void VulkanEngine::init() {
-	showInstanceExtensions();
+	getInstanceExtensions();
+	getInstanceLayers();
 
 	instanceCrationAllocator = new POSIXAllocator();
 	deviceCreationAllocator = new POSIXAllocator();
@@ -71,6 +75,8 @@ void VulkanEngine::init() {
 	memoryDeallocationAllocator = new POSIXAllocator();
 	sparseImageCreationAllocator = new POSIXAllocator();
 	sparseImageTerminationAllocator = new POSIXAllocator();
+	surfaceCreationAllocator = new POSIXAllocator();
+	swapchainCreationAllocator = new POSIXAllocator();
 
 	instanceCrationCallbacks = (VkAllocationCallbacks)* instanceCrationAllocator;
 	deviceCreationCallbacks = (VkAllocationCallbacks)* deviceCreationAllocator;
@@ -86,31 +92,50 @@ void VulkanEngine::init() {
 	memoryDeallocationCallbacks = (VkAllocationCallbacks)*memoryDeallocationAllocator;
 	sparseImageCreationCallbacks = (VkAllocationCallbacks)*sparseImageCreationAllocator;
 	sparseImageTerminationCallbacks = (VkAllocationCallbacks)*sparseImageTerminationAllocator;
+	surfaceCreationCallbacks = (VkAllocationCallbacks)*surfaceCreationAllocator;
+	swapchainCreationCallbacks = (VkAllocationCallbacks)*swapchainCreationAllocator;
 
 	createInstance();
 	enumeratePhysicalDevices();
 	getPhysicalDevicePropertiesAndFeatures();
 	createLogicalDevice();
-	getLayers();
+	getDeviceLayers();
 	showDeviceExtensions();
 	createBuffer();
 	getPhysicalDeviceImageFormatProperties();
 	getPhysicalDeviceSparseImageFormatProperties();
 	createImage();
-	createImageView();
-	createSparseImage();
-	allocateMapDeviceMemory();
+	//createSparseImage();
+	allocateDeviceMemory();
 	getImageMemoryRequirements();
 	bindImageMemory();
+	createImageView();
+	getQueue();
+	getQueueFamilyPresentationSupport();
+	createSurface();
+	createSwapchain();
 }
 
 void VulkanEngine::createInstance() {
-	appInfo.apiVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.applicationVersion = 1;
-	appInfo.pApplicationName = "Vulkan Engine";
+	appInfo.apiVersion = VK_API_VERSION_1_0;
+	appInfo.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
+	appInfo.pApplicationName = "Vulkan Test";
+	appInfo.engineVersion = VK_MAKE_VERSION(0, 1, 0);
+	appInfo.pEngineName = "Vulkan Engine";
+	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	appInfo.pNext = nullptr;
 
+	std::vector<const char*> layerNames = { "VK_LAYER_LUNARG_standard_validation" };
+	std::vector<const char*> extensionNames = { "VK_KHR_surface", "VK_KHR_win32_surface" };
 
 	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+	instanceCreateInfo.pNext = nullptr;
+	instanceCreateInfo.enabledExtensionCount = 2;
+	instanceCreateInfo.enabledLayerCount = 1;
+	instanceCreateInfo.ppEnabledExtensionNames = extensionNames.data();
+	instanceCreateInfo.ppEnabledLayerNames = layerNames.data();
+	instanceCreateInfo.flags = 0;
+
 	instanceCreateInfo.pApplicationInfo = &appInfo;
 
 	if (vkCreateInstance(&instanceCreateInfo, &instanceCrationCallbacks, &instance) == VK_SUCCESS) {
@@ -121,24 +146,7 @@ void VulkanEngine::createInstance() {
 	}
 }
 
-void VulkanEngine::getLayers() {
-	vkEnumerateDeviceLayerProperties(physicalDevices[0], &layerPropertiesCount, nullptr);
-
-	std::cout << "Number of Device Layers available to physical device:\t" << std::to_string(layerPropertiesCount) << std::endl;
-
-	layerProperties.resize(layerPropertiesCount);
-
-	vkEnumerateDeviceLayerProperties(physicalDevices[0], &layerPropertiesCount, layerProperties.data());
-
-	std::cout << "Device Layers:\n";
-
-	for (int i = 0; i < layerPropertiesCount; i++) {
-		std::cout << "\tLayer #" << std::to_string(i) << std::endl;
-		std::cout << "\t\tName:\t" << layerProperties[i].layerName << std::endl;
-		std::cout << "\t\tSpecification Version:\t" << getVersionString(layerProperties[i].specVersion) << std::endl;
-		std::cout << "\t\tDescription:\t" << layerProperties[i].description << std::endl;
-	}
-
+void VulkanEngine::getInstanceLayers() {
 	vkEnumerateInstanceLayerProperties(&layerPropertiesCount, nullptr);
 
 	std::cout << "Number of Instance Layers available to physical device:\t" << std::to_string(layerPropertiesCount) << std::endl;
@@ -153,6 +161,27 @@ void VulkanEngine::getLayers() {
 		std::cout << "\tLayer #" << std::to_string(i) << std::endl;
 		std::cout << "\t\tName:\t" << layerProperties[i].layerName << std::endl;
 		std::cout << "\t\tSpecification Version:\t" << getVersionString(layerProperties[i].specVersion) << std::endl;
+		std::cout << "\t\tImplementation Version:\t" << layerProperties[i].implementationVersion << std::endl;
+		std::cout << "\t\tDescription:\t" << layerProperties[i].description << std::endl;
+	}
+}
+
+void VulkanEngine::getDeviceLayers() {
+	vkEnumerateDeviceLayerProperties(physicalDevices[0], &layerPropertiesCount, nullptr);
+
+	std::cout << "Number of Device Layers available to physical device:\t" << std::to_string(layerPropertiesCount) << std::endl;
+
+	layerProperties.resize(layerPropertiesCount);
+
+	vkEnumerateDeviceLayerProperties(physicalDevices[0], &layerPropertiesCount, layerProperties.data());
+
+	std::cout << "Device Layers:\n";
+
+	for (int i = 0; i < layerPropertiesCount; i++) {
+		std::cout << "\tLayer #" << std::to_string(i) << std::endl;
+		std::cout << "\t\tName:\t" << layerProperties[i].layerName << std::endl;
+		std::cout << "\t\tSpecification Version:\t" << getVersionString(layerProperties[i].specVersion) << std::endl;
+		std::cout << "\t\tImplementation Version:\t" << layerProperties[i].implementationVersion << std::endl;
 		std::cout << "\t\tDescription:\t" << layerProperties[i].description << std::endl;
 	}
 }
@@ -258,8 +287,8 @@ void VulkanEngine::terminate() {
 	vkDestroyImageView(logicalDevices[0], imageViews[0], &imageViewTerminationCallbacks);
 	std::cout << "Image View destroyed.\n";
 
-	vkDestroyImage(logicalDevices[0], sparseImages[0], &sparseImageTerminationCallbacks);
-	std::cout << "Sparse Image destroyed.\n";
+	//vkDestroyImage(logicalDevices[0], sparseImages[0], &sparseImageTerminationCallbacks);
+	//std::cout << "Sparse Image destroyed.\n";
 
 	vkDestroyImage(logicalDevices[0], images[0], &imageTerminationCallbacks);
 	std::cout << "Image destroyed.\n";
@@ -292,9 +321,39 @@ void VulkanEngine::createLogicalDevice() {
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevices[0], &numQueueFamilies, queueFamilyProperties.data());
 
 	for (int i = 0; i < numQueueFamilies; i++) {
+		std::string queueFlagsString = "";
+
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT != 0) {
+			queueFlagsString += "GRAPHICS ";
+		}
+
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT != 0) {
+			queueFlagsString += "COMPUTE ";
+		}
+
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_TRANSFER_BIT != 0) {
+			queueFlagsString += "TRANSFER ";
+		}
+
+		if (queueFamilyProperties[i].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT != 0) {
+			queueFlagsString += "SPARSE-BINDING ";
+		}
+
+
+		std::cout << std::endl;
+		std::cout << "Queue Family " << i << ":\n";
+		std::cout << "\t Queue Family Queue Amount: " << queueFamilyProperties[i].queueCount << std::endl;
+		std::cout << "\t Queue Family Min Image Transfer Granularity Width: " << queueFamilyProperties[i].minImageTransferGranularity.width << std::endl;
+		std::cout << "\t Queue Family Min Image Transfer Granularity Height: " << queueFamilyProperties[i].minImageTransferGranularity.height << std::endl;
+		std::cout << "\t Queue Family Min Image Transfer Granularity Depth: " << queueFamilyProperties[i].minImageTransferGranularity.depth << std::endl;
+		std::cout << "\t Queue Family Flags: " << queueFlagsString << std::endl;
+		std::cout << "\t Queue Family Timestamp Valid Bits: " << queueFamilyProperties[i].timestampValidBits << "Bits" << std::endl;
+
+
 		if (queueFamilyProperties[i].queueFlags % 2 == 1 && graphicQueueFamilyIndex == -1) {
 			graphicQueueFamilyIndex = i;
 			graphicQueueFamilyNumQueue = queueFamilyProperties[i].queueCount;
+
 		}
 
 		queueCount += queueFamilyProperties[i].queueCount;
@@ -320,15 +379,16 @@ void VulkanEngine::createLogicalDevice() {
 	desiredDeviceFeatures.geometryShader = VK_TRUE;
 	desiredDeviceFeatures.multiDrawIndirect = supportedDeviceFeatures.multiDrawIndirect;
 
+	std::vector<const char*> extensionNames = { "VK_KHR_swapchain" };
 
 	logicalDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	logicalDeviceCreateInfo.flags = 0;
 	logicalDeviceCreateInfo.pNext = nullptr;
 	logicalDeviceCreateInfo.queueCreateInfoCount = 1;
 	logicalDeviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
-	logicalDeviceCreateInfo.enabledExtensionCount = 0;
+	logicalDeviceCreateInfo.enabledExtensionCount = 1;
 	logicalDeviceCreateInfo.enabledLayerCount = 0;
-	logicalDeviceCreateInfo.ppEnabledExtensionNames = nullptr;
+	logicalDeviceCreateInfo.ppEnabledExtensionNames = extensionNames.data();
 	logicalDeviceCreateInfo.ppEnabledLayerNames = nullptr;
 	logicalDeviceCreateInfo.pEnabledFeatures = &desiredDeviceFeatures;
 
@@ -348,11 +408,12 @@ void VulkanEngine::createBuffer() {
 	bufferCreateInfo.flags = 0;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferCreateInfo.size = 1024;
 
 	buffers = new VkBuffer[1];
 
 	if (vkCreateBuffer(logicalDevices[0], &bufferCreateInfo, &bufferCreationCallbacks, buffers) == VK_SUCCESS) {
-		std::cout << "Buffer object created successfully.\n";
+		std::cout << "Buffer (1KB) object created successfully.\n";
 	}
 	else {
 		throw VulkanException("Buffer creation failed.");
@@ -372,7 +433,7 @@ void VulkanEngine::createImage() {
 	imageCreateInfo.arrayLayers = 1;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -393,7 +454,174 @@ void VulkanEngine::createImage() {
 }
 
 void VulkanEngine::getPhysicalDeviceImageFormatProperties() {
-	vkGetPhysicalDeviceFormatProperties(physicalDevices[0], VK_FORMAT_R8G8B8A8_UNORM, &formatProperties);
+	vkGetPhysicalDeviceFormatProperties(physicalDevices[0], imageFormat, &formatProperties);
+
+	std::string bufferFormatFeatureFlagsString = "";
+	std::string linearTilingFormatFeatureFlagsString = "";
+	std::string optimalTilingFormatFeatureFlagsString = "";
+
+#pragma region format features bits  
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
+		bufferFormatFeatureFlagsString += "SAMPLED_IMAGED ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
+		bufferFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
+		bufferFormatFeatureFlagsString += "STORAGE_IMAGE ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
+		bufferFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
+		bufferFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
+		bufferFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
+		bufferFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
+		bufferFormatFeatureFlagsString += "VERTEX_BUFFER ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
+		bufferFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
+		bufferFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
+		bufferFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
+		bufferFormatFeatureFlagsString += "BLIT_SRC ";
+	}
+
+	if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
+		bufferFormatFeatureFlagsString += "BLIT_DST ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "SAMPLED_IMAGED ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "STORAGE_IMAGE ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "VERTEX_BUFFER ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "BLIT_SRC ";
+	}
+
+	if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
+		linearTilingFormatFeatureFlagsString += "BLIT_DST ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "SAMPLED_IMAGED ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "STORAGE_IMAGE ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "VERTEX_BUFFER ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "BLIT_SRC ";
+	}
+
+	if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
+		optimalTilingFormatFeatureFlagsString += "BLIT_DST ";
+	}
+#pragma endregion
+
+	std::cout << "Physical Device format support features pertaining to format " << imageFormatString << std::endl;
+	std::cout << "\tBuffer format features flags: " << bufferFormatFeatureFlagsString << std::endl;
+	std::cout << "\tLinear tiling format feature flags: " << linearTilingFormatFeatureFlagsString << std::endl;
+	std::cout << "\tOptimal tiling format feature flags: " << optimalTilingFormatFeatureFlagsString << std::endl;
 
 	VkResult result = vkGetPhysicalDeviceImageFormatProperties(physicalDevices[0], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT, &imageFormatProperties);
 	float maxResourceSizeGB;
@@ -438,7 +666,7 @@ void VulkanEngine::createImageView() {
 	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
 	imageViewCreateInfo.subresourceRange.levelCount = 1;
 	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-	imageViewCreateInfo.subresourceRange.layerCount = 0;
+	imageViewCreateInfo.subresourceRange.layerCount = 1;
 
 	imageViews = new VkImageView[1];
 
@@ -453,7 +681,7 @@ void VulkanEngine::createImageView() {
 	}
 }
 
-void VulkanEngine::allocateMapDeviceMemory() {
+void VulkanEngine::allocateDeviceMemory() {
 	deviceMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	deviceMemoryAllocateInfo.pNext = nullptr;
 	deviceMemoryAllocateInfo.allocationSize = memoryAllocationSize; //1GB
@@ -474,7 +702,7 @@ void VulkanEngine::allocateMapDeviceMemory() {
 
 	std::unique_lock<std::mutex> *pLock7 = nullptr;;
 
-	char *mappedMemory;
+	void **mappedMemory = new void*;
 
 	switch (result) {
 	case VK_SUCCESS:
@@ -487,7 +715,7 @@ void VulkanEngine::allocateMapDeviceMemory() {
 
 		pLock6 = new std::unique_lock<std::mutex>(mtxMemoryHandle);
 		{
-			result = vkMapMemory(logicalDevices[0], memories[0], 0, VK_WHOLE_SIZE, 0, (void**)&mappedMemory);
+			result = vkMapMemory(logicalDevices[0], memories[0], 0, VK_WHOLE_SIZE, 0, mappedMemory);
 		}
 		pLock6->unlock();
 		pLock6->release();
@@ -502,7 +730,7 @@ void VulkanEngine::allocateMapDeviceMemory() {
 		}
 
 		std::cout << "Writing to visible mapped memory... (1GB)" << std::endl;
-		memset(mappedMemory, 7, memoryAllocationSize);
+		memset(*mappedMemory, 7, memoryAllocationSize);
 		std::cout << "Writing finished." << std::endl;
 
 		memoryFlushRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
@@ -595,14 +823,14 @@ void VulkanEngine::createSparseImage() {
 	sparseImageCreateInfo.pNext = nullptr;
 	sparseImageCreateInfo.flags = VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT | VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
 	sparseImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-	sparseImageCreateInfo.format = VK_FORMAT_R16G16B16A16_UNORM;
-	sparseImageCreateInfo.extent.width = 1024;
-	sparseImageCreateInfo.extent.height = 1024;
+	sparseImageCreateInfo.format = VK_FORMAT_R32G32B32A32_UINT;
+	sparseImageCreateInfo.extent.width = 4096;
+	sparseImageCreateInfo.extent.height = 4096;
 	sparseImageCreateInfo.extent.depth = 1;
-	sparseImageCreateInfo.arrayLayers = 10;
+	sparseImageCreateInfo.arrayLayers = 1;
 	sparseImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	sparseImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	sparseImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	sparseImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	sparseImageCreateInfo.mipLevels = imageFormatProperties.maxMipLevels;
 	sparseImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	sparseImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -615,7 +843,7 @@ void VulkanEngine::createSparseImage() {
 
 	switch (result) {
 	case VK_SUCCESS:
-		std::cout << "Sparse Image (" << 1024 << "x" << 1024 << ") created successfully.\n";
+		std::cout << "Sparse Image (" << 2048 << "x" << 2048 << ", with different other parameters) created successfully.\n";
 		break;
 	default:
 		throw VulkanException("Sparse Image creation failed.");
@@ -680,35 +908,21 @@ void VulkanEngine::createSparseImage() {
 	}
 }
 
-
-
-//sparseImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-//sparseImageCreateInfo.pNext = nullptr;
-//sparseImageCreateInfo.flags = VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT | VK_IMAGE_CREATE_SPARSE_BINDING_BIT;
-//sparseImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-//sparseImageCreateInfo.format = VK_FORMAT_R16G16B16A16_UNORM;
-//sparseImageCreateInfo.extent.width = 1024;
-//sparseImageCreateInfo.extent.height = 1024;
-//sparseImageCreateInfo.extent.depth = 1;
-//sparseImageCreateInfo.arrayLayers = 10;
-//sparseImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-//sparseImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-//sparseImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-//sparseImageCreateInfo.mipLevels = imageFormatProperties.maxMipLevels;
-//sparseImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-//sparseImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-//sparseImageCreateInfo.queueFamilyIndexCount = 0;
-//sparseImageCreateInfo.pQueueFamilyIndices = nullptr;
-
-
 void VulkanEngine::getPhysicalDeviceSparseImageFormatProperties() {
-	vkGetPhysicalDeviceSparseImageFormatProperties(physicalDevices[0], VK_FORMAT_R16G16B16A16_UNORM, VK_IMAGE_TYPE_2D, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_TILING_OPTIMAL, &physicalDeviceSparseImageFormatPropertiesCount, nullptr);
+	VkImageUsageFlags usageFlags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	VkFormat format = VK_FORMAT_R16G16B16A16_UNORM;
+	VkSampleCountFlagBits samplesCount = VK_SAMPLE_COUNT_1_BIT;
+	VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+	VkImageType type = VK_IMAGE_TYPE_2D;
+
+
+	vkGetPhysicalDeviceSparseImageFormatProperties(physicalDevices[0], format, type, samplesCount, usageFlags, tiling, &physicalDeviceSparseImageFormatPropertiesCount, nullptr);
 
 	physicalDeviceSparseImageFormatProperties = new VkSparseImageFormatProperties[physicalDeviceSparseImageFormatPropertiesCount];
 
-	vkGetPhysicalDeviceSparseImageFormatProperties(physicalDevices[0], VK_FORMAT_R16G16B16A16_UNORM, VK_IMAGE_TYPE_2D, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_TILING_OPTIMAL, &physicalDeviceSparseImageFormatPropertiesCount, physicalDeviceSparseImageFormatProperties);
+	vkGetPhysicalDeviceSparseImageFormatProperties(physicalDevices[0], format, type, samplesCount, usageFlags, tiling, &physicalDeviceSparseImageFormatPropertiesCount, physicalDeviceSparseImageFormatProperties);
 
-	std::cout << "Physical Device support extent pertaining to sparse image format VK_FORMAT_R16G16B16A16_UNORM(2D) with optimal tiling usable as source and destination of transfer commands, allowing image view creation off itself, with one multisampling:\n";
+	std::cout << "Physical Device support extent pertaining to sparse image format VK_FORMAT_R16G16B16A16_UNORM(2D) with optimal tiling usable as source and destination of transfer commands, as well as sampling, and allowing image view creation off itself, with one multisampling:\n";
 
 	for (uint32_t i = 0; i < physicalDeviceSparseImageFormatPropertiesCount; i++) {
 
@@ -752,4 +966,154 @@ void VulkanEngine::getPhysicalDeviceSparseImageFormatProperties() {
 
 		std::cout << "\tFlags: " << flagsString << std::endl;
 	}
+}
+
+
+void VulkanEngine::getQueue() {
+	vkGetDeviceQueue(logicalDevices[0], graphicQueueFamilyIndex, 0, &queue);
+
+	if (queue == VK_NULL_HANDLE) {
+		throw "Couldn't obtain queue from device.";
+	}
+	else {
+		std::cout << "Queue obtained successfully.\n";
+	}
+}
+
+void VulkanEngine::getQueueFamilyPresentationSupport() {
+	if (vkGetPhysicalDeviceWin32PresentationSupportKHR(physicalDevices[0], graphicQueueFamilyIndex) == VK_TRUE) {
+		std::cout << "Selected Graphical Queue Family supports presentation." << std::endl;
+	}
+	else
+		throw VulkanException("Selected queue family (graphical) doesn't support presentation.");
+}
+
+void VulkanEngine::createSurface() {
+	VkResult result;
+
+	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	surfaceCreateInfo.pNext = nullptr;
+	surfaceCreateInfo.flags = 0;
+	surfaceCreateInfo.hinstance = hInstance;
+	surfaceCreateInfo.hwnd = windowHandle;
+
+	result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, &surfaceCreationCallbacks, &surface);
+
+	if (result == VK_SUCCESS) {
+		std::cout << "Surface created and associated with the window." << std::endl;
+	}
+	else
+		throw VulkanException("Failed to create and/or assocate surface with the window");
+}
+
+void VulkanEngine::createSwapchain() {
+	VkResult surfaceSupportResult = vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevices[0], graphicQueueFamilyIndex, surface, &physicalDeviceSurfaceSupported);
+
+	if (surfaceSupportResult == VK_SUCCESS && physicalDeviceSurfaceSupported == VK_TRUE) {
+		std::cout << "Physical Device selected graphical queue family supports presentation." << std::endl;
+	}
+	else
+		throw VulkanException("Physical Device selected graphical queue family doesn't support presentation.");
+
+	VkResult surfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevices[0], surface, &surfaceCapabilities);
+
+	if (surfaceCapabilitiesResult == VK_SUCCESS) {
+		std::cout << "Successfully fetched device surface capabilities" << std::endl;
+
+		std::cout << "Minimum swap chain image count: " << surfaceCapabilities.minImageCount << std::endl;
+		std::cout << "Maximum swap chain image count: " << surfaceCapabilities.maxImageCount << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't fetch device surface capabilities.");
+
+	if (vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevices[0], surface, &surfaceSupportedFormatsCount, nullptr) != VK_SUCCESS)
+		throw VulkanException("Couldn't get surface supported formats.");
+
+	surfaceSupportedFormats = new VkSurfaceFormatKHR[surfaceSupportedFormatsCount];
+
+	if (vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevices[0], surface, &surfaceSupportedFormatsCount, surfaceSupportedFormats) != VK_SUCCESS)
+		throw VulkanException("Couldn't get surface supported formats.");
+
+
+	uint32_t supportedFormatColorSpacePairIndex = -1;
+	uint32_t supportedPresentModeIndex = -1;
+
+	for (int i = 0; i < surfaceSupportedFormatsCount; i++) {
+		if (surfaceSupportedFormats[i].format == VK_FORMAT_R8G8B8A8_SRGB && surfaceSupportedFormats[i].colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR)
+		{
+			supportedFormatColorSpacePairIndex = i;
+			break;
+		}
+	}
+
+	if (supportedFormatColorSpacePairIndex == -1)
+		throw VulkanException("Couldn't find R8G8B8A8_SRGB and SRGB_NONLINEAR format/color-space pair in supported formats/color-spaces.");
+
+	if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevices[0], surface, &surfaceSupportedPresentModesCount, nullptr) != VK_SUCCESS) {
+		throw VulkanException("Couldn't get surface supported presentation modes.");
+	}
+
+	surfaceSupportedPresentModes = new VkPresentModeKHR[surfaceSupportedPresentModesCount];
+
+	if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevices[0], surface, &surfaceSupportedPresentModesCount, surfaceSupportedPresentModes) != VK_SUCCESS) {
+		throw VulkanException("Couldn't get surface supported presentation modes.");
+	}
+
+	for (int i = 0; i < surfaceSupportedPresentModesCount; i++) {
+		if (surfaceSupportedPresentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+			supportedPresentModeIndex = i;
+			break;
+		}
+	}
+
+	if (surfaceSupportedPresentModesCount == -1)
+		throw VulkanException("Couldn't find IMMEDIATE present mode in supported present modes.");
+
+	swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapchainCreateInfo.pNext = nullptr;
+	swapchainCreateInfo.flags = 0;
+	swapchainCreateInfo.surface = surface;
+	swapchainCreateInfo.minImageCount = (2 >= surfaceCapabilities.minImageCount && 2 <= surfaceCapabilities.maxImageCount) ? (2) : (surfaceCapabilities.minImageCount);
+	swapchainCreateInfo.imageFormat = surfaceSupportedFormats[supportedFormatColorSpacePairIndex].format;
+	swapchainCreateInfo.imageColorSpace = surfaceSupportedFormats[supportedFormatColorSpacePairIndex].colorSpace;
+	swapchainCreateInfo.imageExtent.width = surfaceCapabilities.currentExtent.width;
+	swapchainCreateInfo.imageExtent.height = surfaceCapabilities.currentExtent.height;
+	swapchainCreateInfo.imageArrayLayers = 1;
+
+	if ((surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) != 0 && (surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT) != 0)
+	{
+		std::cout << "Surface supports USAGE_STORAGE and COLOR_ATTACHMENT usage bits." << std::endl;
+	}
+	else
+		throw VulkanException("Surface doesn't support USAGE_STORAGE and/or COLOR_ATTACHMENT usage bits.");
+
+	swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+	swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	swapchainCreateInfo.pQueueFamilyIndices = nullptr;
+	swapchainCreateInfo.queueFamilyIndexCount = 0;
+	swapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapchainCreateInfo.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+	swapchainCreateInfo.clipped = VK_TRUE;
+
+	VkResult result = vkCreateSwapchainKHR(logicalDevices[0], &swapchainCreateInfo, &swapchainCreationCallbacks, &swapchain);
+
+	if (result == VK_SUCCESS) {
+		std::cout << "Swapchain created successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Swapchain creation failed.");
+
+	VkResult swapchainImageResult;
+
+	if ((swapchainImageResult = vkGetSwapchainImagesKHR(logicalDevices[0], swapchain, &swapchainImagesCount, nullptr)) != VK_SUCCESS)
+		throw VulkanException("Couldn't get swapchain images.");
+
+	swapchainImages = new VkImage[swapchainImagesCount];
+
+	if ((swapchainImageResult = vkGetSwapchainImagesKHR(logicalDevices[0], swapchain, &swapchainImagesCount, swapchainImages)) == VK_SUCCESS) {
+		std::cout << "Swapchain images acquired successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't get swapchain images.");
 }
