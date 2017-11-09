@@ -132,8 +132,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="POSIXAllocator.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="Vulkan Engine Exception.h" />
     <ClInclude Include="Vulkan Engine.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\glslang-Overload400-PrecQual\build\StandAlone\Release\comp.spv" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

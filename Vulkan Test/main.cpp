@@ -3,35 +3,49 @@
 #include <iostream>
 #include "Vulkan Engine.h"
 
-VulkanEngine *engine = nullptr;
+VulkanEngine *engine = NULL;
 const char g_szClassName[] = "myWindowClass";
 HWND windowHandle = NULL;
 bool vulkanInitied = false;
+VulkanEngine **pUnstableInstance = new VulkanEngine*;
+
+void deleteEngineOrUnstableEngine() {
+	if (*pUnstableInstance != NULL)
+		delete *pUnstableInstance;
+	else
+		delete engine;
+}
 
 BOOL WINAPI closeHandler(DWORD dwCtrlType) {
-	if (dwCtrlType == CTRL_CLOSE_EVENT) {
-		delete engine;
-	}
+	if (dwCtrlType == CTRL_CLOSE_EVENT)
+		deleteEngineOrUnstableEngine();
 
 	return TRUE;
 }
 
 bool initVulkan(HINSTANCE hInstance, HWND windowHandle) {
 	try {
-		engine = new VulkanEngine(hInstance, windowHandle);
+		engine = new VulkanEngine(hInstance, windowHandle, pUnstableInstance);
+
+		if (engine != NULL)
+			*pUnstableInstance = NULL;
 	}
 	catch (VulkanException e) {
 		std::cerr << e.what();
 
 		getchar();
 
-		return false;
+		delete *pUnstableInstance;
+
+		exit(EXIT_FAILURE);
 	}
-	
+
 	vulkanInitied = true;
 
 	return true;
 }
+
+
 
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -41,9 +55,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_SHOWWINDOW:
 		if (!vulkanInitied && !initVulkan(GetModuleHandle(NULL), windowHandle))
 			return -1;
-		break;
+		else
+			return DefWindowProc(hwnd, msg, wParam, lParam);
 	case WM_CLOSE:
-		delete engine;
+		deleteEngineOrUnstableEngine();
 		DestroyWindow(hwnd);
 		break;
 	case WM_DESTROY:
@@ -104,6 +119,7 @@ void initWindow(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 int main() {
 	SetConsoleCtrlHandler(closeHandler, TRUE);
 
+	//Consequently, The first WM_SHOWWINDOW message starts the Vulkan initialization.
 	initWindow(GetModuleHandle(NULL), NULL, "", 1);
 
 	return EXIT_SUCCESS;

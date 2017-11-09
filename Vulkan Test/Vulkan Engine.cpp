@@ -1,8 +1,14 @@
+#include "resource.h"
 #include "Vulkan Engine.h"
 
 #pragma comment(lib, "vulkan-1.lib")
 
-VulkanEngine::VulkanEngine(HINSTANCE hInstance, HWND windowHandle) {
+VulkanEngine** ppUnstableInstance_img = NULL;
+
+VulkanEngine::VulkanEngine(HINSTANCE hInstance, HWND windowHandle, VulkanEngine** ppUnstableInstance) {
+	*ppUnstableInstance = this;
+	ppUnstableInstance_img = ppUnstableInstance;
+
 	this->hInstance = hInstance;
 	this->windowHandle = windowHandle;
 
@@ -77,6 +83,7 @@ void VulkanEngine::init() {
 	sparseImageTerminationAllocator = new POSIXAllocator();
 	surfaceCreationAllocator = new POSIXAllocator();
 	swapchainCreationAllocator = new POSIXAllocator();
+	swapchainTerminationAllocator = new POSIXAllocator();
 
 	instanceCrationCallbacks = (VkAllocationCallbacks)* instanceCrationAllocator;
 	deviceCreationCallbacks = (VkAllocationCallbacks)* deviceCreationAllocator;
@@ -94,6 +101,7 @@ void VulkanEngine::init() {
 	sparseImageTerminationCallbacks = (VkAllocationCallbacks)*sparseImageTerminationAllocator;
 	surfaceCreationCallbacks = (VkAllocationCallbacks)*surfaceCreationAllocator;
 	swapchainCreationCallbacks = (VkAllocationCallbacks)*swapchainCreationAllocator;
+	swapchainTerminationCallbacks = (VkAllocationCallbacks)*swapchainTerminationAllocator;
 
 	createInstance();
 	enumeratePhysicalDevices();
@@ -108,12 +116,20 @@ void VulkanEngine::init() {
 	//createSparseImage();
 	allocateDeviceMemory();
 	getImageMemoryRequirements();
-	bindImageMemory();
-	createImageView();
+	bindBufferMemory();
+	//createImageView();
 	getQueue();
 	getQueueFamilyPresentationSupport();
 	createSurface();
 	createSwapchain();
+	waitToDraw();
+	createShaderModule();
+	createPipelineLayout();
+	createComputePipeline();
+	createDescriptorSetPool();
+	allocateDescriptorSet();
+	updateDescriptorSet();
+	compute();
 }
 
 void VulkanEngine::createInstance() {
@@ -208,6 +224,12 @@ void VulkanEngine::getPhysicalDevicePropertiesAndFeatures() {
 
 	std::cout << "Minimum Memory Map Alignment:\t" << deviceProperties.limits.minMemoryMapAlignment << std::endl;
 
+	std::cout << "Max Local Working Group Size: " << deviceProperties.limits.maxComputeWorkGroupSize[0] << "x" << deviceProperties.limits.maxComputeWorkGroupSize[1] << "x" << deviceProperties.limits.maxComputeWorkGroupSize[2] << std::endl;
+
+	std::cout << "Max Total Working Group Invocations: " << deviceProperties.limits.maxComputeWorkGroupInvocations << std::endl;
+
+	std::cout << "Max bound descriptor sets in a pipeline layout: " << deviceProperties.limits.maxBoundDescriptorSets << std::endl;
+
 	vkGetPhysicalDeviceMemoryProperties(physicalDevices[0], &deviceMemoryProperties);
 
 	memoryTypeCount = deviceMemoryProperties.memoryTypeCount;
@@ -222,7 +244,7 @@ void VulkanEngine::getPhysicalDevicePropertiesAndFeatures() {
 		int heapIndex = deviceMemoryProperties.memoryTypes[i].heapIndex;
 
 		if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0 && (deviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
-			deviceLocalExclusiveMemoryTypeIndex = i;
+			deviceLocalVisibleMemoryTypeIndex = i;
 
 		if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0) {
 			flagsString += "DEVICE_LOCAL ";
@@ -254,16 +276,23 @@ void VulkanEngine::getPhysicalDevicePropertiesAndFeatures() {
 		totalHeapMemorySize += deviceMemoryProperties.memoryHeaps[heapIndex].size;
 	}
 
-	if (deviceLocalExclusiveMemoryTypeIndex == -1)
+	if (deviceLocalVisibleMemoryTypeIndex == -1)
 		throw VulkanException("No desired memory type found.");
 
 	std::cout << "\nTotal Heaps Size:\t" << std::to_string((float)totalHeapMemorySize / (1024 * 1024 * 1024)) << "GB" << std::endl;
 }
 
 void VulkanEngine::terminate() {
+	VulkanEngine *instanceToTerminate = NULL;
+
+	//if (*ppUnstableInstance_img != NULL)
+	//	instanceToTerminate = *ppUnstableInstance_img;
+	//else
+	instanceToTerminate = this;
+
 	//Shutting Down
 	//releasing memory
-	delete deviceQueueCreateInfo.pQueuePriorities;
+	delete instanceToTerminate->deviceQueueCreateInfo.pQueuePriorities;
 
 
 	//Terminte other threads
@@ -271,42 +300,101 @@ void VulkanEngine::terminate() {
 
 	std::cout << "Waiting for logical device to return...\n";
 
-	std::unique_lock<std::mutex> lock(mtxLogicalDeviceHandle);
-	vkDeviceWaitIdle(logicalDevices[0]);
-	lock.unlock();
-	lock.release();
+	bool lockCreated = false;
 
-	std::unique_lock<std::mutex> lock4(mtxMemoryHandle);
-	{
-		vkFreeMemory(logicalDevices[0], memories[0], &memoryDeallocationCallbacks);
-		std::cout << "Device Memory freed.\n";
+	std::unique_lock<std::mutex>* pLock = NULL;
+
+	pLock = new std::unique_lock<std::mutex>(instanceToTerminate->mtxLogicalDeviceHandle);
+	lockCreated = true;
+
+	vkDeviceWaitIdle(instanceToTerminate->logicalDevices[0]);
+
+	if (lockCreated) {
+		pLock->unlock();
 	}
-	lock4.unlock();
-	lock4.release();
 
-	vkDestroyImageView(logicalDevices[0], imageViews[0], &imageViewTerminationCallbacks);
-	std::cout << "Image View destroyed.\n";
+	if (lockCreated)
+	{
+		pLock->release();
+	}
+
+	vkDestroySwapchainKHR(logicalDevices[0], swapchain, &swapchainTerminationCallbacks);
+	std::cout << "Swapchain destroyed succesfully." << std::endl;
+
+	vkDestroyFence(logicalDevices[0], acquireNextImageIndexFence, nullptr);
+	std::cout << "Swapchain next image index wait fence destroyed." << std::endl;
+
+
+	std::unique_lock<std::mutex> *pLock4 = NULL;
+
+	lockCreated = false;
+
+
+	pLock4 = new std::unique_lock<std::mutex>(instanceToTerminate->mtxMemoryHandle);
+
+	lockCreated = true;
+
+	vkFreeMemory(instanceToTerminate->logicalDevices[0], instanceToTerminate->memories[0], &instanceToTerminate->memoryDeallocationCallbacks);
+	std::cout << "Device Memory released.\n";
+
+	if (lockCreated)
+	{
+
+		pLock4->unlock();
+
+	}
+	if (lockCreated)
+	{
+
+		pLock4->release();
+
+	}
+
+
+	//vkDestroyImageView(instanceToTerminate->logicalDevices[0], instanceToTerminate->imageViews[0], &instanceToTerminate->imageViewTerminationCallbacks);
+	//std::cout << "Image View destroyed.\n";
+
 
 	//vkDestroyImage(logicalDevices[0], sparseImages[0], &sparseImageTerminationCallbacks);
 	//std::cout << "Sparse Image destroyed.\n";
 
-	vkDestroyImage(logicalDevices[0], images[0], &imageTerminationCallbacks);
+	vkDestroyImage(instanceToTerminate->logicalDevices[0], instanceToTerminate->images[0], &instanceToTerminate->imageTerminationCallbacks);
 	std::cout << "Image destroyed.\n";
 
-	vkDestroyBuffer(logicalDevices[0], buffers[0], &bufferTerminationCallbacks);
+
+	vkDestroyBuffer(instanceToTerminate->logicalDevices[0], instanceToTerminate->buffers[0], &instanceToTerminate->bufferTerminationCallbacks);
 	std::cout << "Buffer destroyed.\n";
 
-	std::unique_lock<std::mutex> lock3(mtxLogicalDeviceHandle);
+
+	std::unique_lock<std::mutex> *pLock3 = NULL;
+
+	lockCreated = false;
+
+
+	pLock3 = new std::unique_lock<std::mutex>(instanceToTerminate->mtxLogicalDeviceHandle);
+	lockCreated = true;
+
+	vkDestroyDevice(instanceToTerminate->logicalDevices[0], &instanceToTerminate->deviceTerminationCallbacks);
+	std::cout << "Logical Device destroyed.\n";
+
+	if (lockCreated)
 	{
-		vkDestroyDevice(logicalDevices[0], &deviceTerminationCallbacks);
 
-		std::cout << "Logical Device destroyed.\n";
+		pLock3->unlock();
+
 	}
-	lock3.unlock();
-	lock3.release();
+	if (lockCreated)
+	{
 
-	vkDestroyInstance(instance, &instanceTerminationCallbacks);
+		pLock3->release();
+
+	}
+
+	vkDestroyInstance(instanceToTerminate->instance, &instanceToTerminate->instanceTerminationCallbacks);
 	std::cout << "Instance destroyed.\n";
+
+	getchar();
+
 }
 
 void VulkanEngine::createLogicalDevice() {
@@ -397,22 +485,36 @@ void VulkanEngine::createLogicalDevice() {
 		std::cout << "Logical device creation succeeded.\n";
 	}
 	else {
-		throw VulkanException("Logical Device creation failed.");
+		throw VulkanException("Logical Device creation failed.\n");
 	}
 }
 
 void VulkanEngine::createBuffer() {
 
+	buffers = new VkBuffer[2];
+
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.pNext = nullptr;
 	bufferCreateInfo.flags = 0;
-	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bufferCreateInfo.size = 1024;
 
-	buffers = new VkBuffer[1];
-
 	if (vkCreateBuffer(logicalDevices[0], &bufferCreateInfo, &bufferCreationCallbacks, buffers) == VK_SUCCESS) {
+		std::cout << "Buffer (1KB) object created successfully.\n";
+	}
+	else {
+		throw VulkanException("Buffer creation failed.");
+	}
+
+	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferCreateInfo.pNext = nullptr;
+	bufferCreateInfo.flags = 0;
+	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bufferCreateInfo.size = 1024;
+
+	if (vkCreateBuffer(logicalDevices[0], &bufferCreateInfo, &bufferCreationCallbacks, buffers + 1) == VK_SUCCESS) {
 		std::cout << "Buffer (1KB) object created successfully.\n";
 	}
 	else {
@@ -685,11 +787,11 @@ void VulkanEngine::allocateDeviceMemory() {
 	deviceMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	deviceMemoryAllocateInfo.pNext = nullptr;
 	deviceMemoryAllocateInfo.allocationSize = memoryAllocationSize; //1GB
-	deviceMemoryAllocateInfo.memoryTypeIndex = deviceLocalExclusiveMemoryTypeIndex;
+	deviceMemoryAllocateInfo.memoryTypeIndex = deviceLocalVisibleMemoryTypeIndex;
 
 	VkResult result;
 
-	memories = new VkDeviceMemory[1];
+	memories = new VkDeviceMemory[2];
 
 	std::unique_lock<std::mutex> lock5(mtxMemoryHandle);
 	{
@@ -697,6 +799,19 @@ void VulkanEngine::allocateDeviceMemory() {
 	}
 	lock5.unlock();
 	lock5.release();
+
+	if (result != VK_SUCCESS)
+		throw VulkanException("Couldn't allocate memory.");
+
+	std::unique_lock<std::mutex> lock13(mtxMemoryHandle);
+	{
+		result = vkAllocateMemory(logicalDevices[0], &deviceMemoryAllocateInfo, &memoryAllocationCallbacks, memories + 1);
+	}
+	lock13.unlock();
+	lock13.release();
+
+	if (result != VK_SUCCESS)
+		throw VulkanException("Couldn't allocate memory.");
 
 	std::unique_lock<std::mutex> *pLock6 = nullptr;
 
@@ -730,7 +845,7 @@ void VulkanEngine::allocateDeviceMemory() {
 		}
 
 		std::cout << "Writing to visible mapped memory... (1GB)" << std::endl;
-		memset(*mappedMemory, 7, memoryAllocationSize);
+		memset(*mappedMemory, 2, memoryAllocationSize);
 		std::cout << "Writing finished." << std::endl;
 
 		memoryFlushRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
@@ -790,7 +905,7 @@ void VulkanEngine::getImageMemoryRequirements() {
 			std::cout << "\tImage supports memory type index " << i << std::endl;
 	}
 
-	bool compatibleAllocatedMemory = (imageMemoryRequirements.memoryTypeBits & (1 << deviceLocalExclusiveMemoryTypeIndex)) != 0;
+	bool compatibleAllocatedMemory = (imageMemoryRequirements.memoryTypeBits & (1 << deviceLocalVisibleMemoryTypeIndex)) != 0;
 
 	if (!compatibleAllocatedMemory)
 		throw VulkanException("Image doesn't support mapped memory type.");
@@ -798,24 +913,30 @@ void VulkanEngine::getImageMemoryRequirements() {
 	/*std::cout << "Image supports Memory Mapping for the selected memory type (index "<< deviceLocalExclusiveMemoryTypeIndex <<").\n";*/
 }
 
-void VulkanEngine::bindImageMemory() {
+void VulkanEngine::bindBufferMemory() {
 	VkResult result;
 
-	std::unique_lock<std::mutex> lock8(mtxImageHandle);
+	std::unique_lock<std::mutex> lock8(mtxBufferHandle);
 	{
-		result = vkBindImageMemory(logicalDevices[0], images[0], memories[0], 0);
+		result = vkBindBufferMemory(logicalDevices[0], buffers[0], memories[0], 0);
 	}
 	lock8.unlock();
 	lock8.release();
 
-	switch (result) {
-	case VK_SUCCESS:
-		std::cout << "Memory bound to image successfully.\n";
-		break;
-	default:
-		std::cout << "Memory binding to image failed.";
-
+	if (result == VK_SUCCESS)
+	{
+		std::cout << "Memory bound to buffer successfully.\n";
 	}
+	else
+		throw VulkanException("Memory binding to buffer failed.");
+
+
+	std::unique_lock<std::mutex> lock14(mtxBufferHandle);
+	{
+		result = vkBindBufferMemory(logicalDevices[0], buffers[1], memories[1], 0);
+	}
+	lock14.unlock();
+	lock14.release();
 }
 
 void VulkanEngine::createSparseImage() {
@@ -968,7 +1089,6 @@ void VulkanEngine::getPhysicalDeviceSparseImageFormatProperties() {
 	}
 }
 
-
 void VulkanEngine::getQueue() {
 	vkGetDeviceQueue(logicalDevices[0], graphicQueueFamilyIndex, 0, &queue);
 
@@ -1018,7 +1138,7 @@ void VulkanEngine::createSwapchain() {
 	VkResult surfaceCapabilitiesResult = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevices[0], surface, &surfaceCapabilities);
 
 	if (surfaceCapabilitiesResult == VK_SUCCESS) {
-		std::cout << "Successfully fetched device surface capabilities" << std::endl;
+		std::cout << "Successfully fetched device surface capabilities." << std::endl;
 
 		std::cout << "Minimum swap chain image count: " << surfaceCapabilities.minImageCount << std::endl;
 		std::cout << "Maximum swap chain image count: " << surfaceCapabilities.maxImageCount << std::endl;
@@ -1112,8 +1232,401 @@ void VulkanEngine::createSwapchain() {
 	swapchainImages = new VkImage[swapchainImagesCount];
 
 	if ((swapchainImageResult = vkGetSwapchainImagesKHR(logicalDevices[0], swapchain, &swapchainImagesCount, swapchainImages)) == VK_SUCCESS) {
-		std::cout << "Swapchain images acquired successfully." << std::endl;
+		std::cout << "Swapchain images obtained successfully." << std::endl;
 	}
 	else
 		throw VulkanException("Couldn't get swapchain images.");
+}
+
+void VulkanEngine::waitToDraw() {
+	VkSemaphore semaphore = {};
+	uint32_t imageIndex = -1;
+
+	VkFenceCreateInfo fenceCreateInfo = {};
+
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceCreateInfo.pNext = nullptr;
+	fenceCreateInfo.flags = 0;
+
+	VkResult createFenceResult = vkCreateFence(logicalDevices[0], &fenceCreateInfo, nullptr, &acquireNextImageIndexFence);
+
+	vkResetFences(logicalDevices[0], 1, &acquireNextImageIndexFence);
+
+	VkResult acquireNextImageIndexResult = vkAcquireNextImageKHR(logicalDevices[0], swapchain, 0, VK_NULL_HANDLE, acquireNextImageIndexFence, &imageIndex);
+
+	if (acquireNextImageIndexResult == VK_NOT_READY) {
+		vkWaitForFences(logicalDevices[0], 1, &acquireNextImageIndexFence, VK_TRUE, 1000000000000000);
+	}
+
+	std::cout << "Next available swapchain image index acquired." << std::endl;
+	present(imageIndex);
+	return;
+}
+
+void VulkanEngine::present(uint32_t swapchainPresentImageIndex) {
+	VkCommandPool commandPool = {};
+
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.pNext = nullptr;
+	presentInfo.pSwapchains = &swapchain;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pImageIndices = &swapchainPresentImageIndex;
+	presentInfo.pResults = nullptr;
+	presentInfo.waitSemaphoreCount = 0;
+	presentInfo.pWaitSemaphores = nullptr;
+
+	VkCommandPoolCreateInfo commandPoolCreateInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, graphicQueueFamilyIndex };
+
+	vkCreateCommandPool(logicalDevices[0], &commandPoolCreateInfo, nullptr, &commandPool);
+
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY , 1 };
+	VkCommandBuffer commandBuffer = {};
+
+	vkAllocateCommandBuffers(logicalDevices[0], &commandBufferAllocateInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo commandBufferBeginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT , nullptr };
+
+	vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+
+	VkImageMemoryBarrier imageBarrier = {
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		nullptr,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		VK_QUEUE_FAMILY_IGNORED,
+		VK_QUEUE_FAMILY_IGNORED,
+		swapchainImages[swapchainPresentImageIndex],
+		{
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			0,
+			1,
+			0,
+			1
+		}
+	};
+
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, 1, &imageBarrier);
+
+	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr, 0, nullptr, nullptr, 1, &commandBuffer, 0 , nullptr };
+
+	vkEndCommandBuffer(commandBuffer);
+
+	vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+
+	vkDeviceWaitIdle(logicalDevices[0]);
+
+	vkDestroyCommandPool(logicalDevices[0], commandPool, nullptr);
+
+	VkResult result = vkQueuePresentKHR(queue, &presentInfo);
+
+	if (result == VK_SUCCESS) {
+		std::cout << "Image presentation command successfully submitted to queue." << std::endl;
+	}
+	else if (result == VK_SUBOPTIMAL_KHR) {
+		std::cout << "Image presentation command successfully submitted to queue, but the swapchain is not longer optimal for the target surface." << std::endl;
+	}
+	else {
+		throw VulkanException("Failed to present.");
+	}
+}
+
+void VulkanEngine::createShaderModule() {
+
+	HRSRC handleShaderResource = FindResource(NULL, MAKEINTRESOURCE(IDR_SPIRV1), "SPIRV");
+	HGLOBAL handleLoadedShaderResource = LoadResource(NULL, handleShaderResource);
+
+	void * pShaderData = LockResource(handleLoadedShaderResource);
+	DWORD shaderSize = SizeofResource(NULL, handleShaderResource);
+
+	shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	shaderModuleCreateInfo.pNext = nullptr;
+	shaderModuleCreateInfo.codeSize = shaderSize;
+	shaderModuleCreateInfo.flags = 0;
+	shaderModuleCreateInfo.pCode = (uint32_t*)pShaderData;
+
+	if (vkCreateShaderModule(logicalDevices[0], &shaderModuleCreateInfo, nullptr, &shaderModule) == VK_SUCCESS) {
+		std::cout << "Shader Module created successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't create shader module.");
+}
+
+void VulkanEngine::createPipelineLayout() {
+	VkDescriptorSetLayoutBinding *bindings = new VkDescriptorSetLayoutBinding[2];
+
+	bindings[0].binding = 0;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindings[0].descriptorCount = 1;
+	bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[0].pImmutableSamplers = nullptr;
+
+	bindings[1].binding = 1;
+	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[1].descriptorCount = 1;
+	bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	bindings[1].pImmutableSamplers = nullptr;
+
+
+	descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descriptorSetLayoutCreateInfo.pNext = nullptr;
+	descriptorSetLayoutCreateInfo.bindingCount = 2;
+	descriptorSetLayoutCreateInfo.flags = 0;
+	descriptorSetLayoutCreateInfo.pBindings = bindings;
+
+	if (vkCreateDescriptorSetLayout(logicalDevices[0], &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout) == VK_SUCCESS) {
+		std::cout << "Descriptor Set Layout created successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't create descriptor set layout.");
+
+	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutCreateInfo.pNext = nullptr;
+	pipelineLayoutCreateInfo.flags = 0;
+	pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
+	pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+	pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+
+	VkResult result = vkCreatePipelineLayout(logicalDevices[0], &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
+
+	if (result == VK_SUCCESS) {
+		std::cout << "Pipeline Layout created successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't create pipeline layout.");
+}
+
+void VulkanEngine::createComputePipeline() {
+	VkPipelineShaderStageCreateInfo computeShaderStage;
+
+	computeShaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	computeShaderStage.pNext = nullptr;
+	computeShaderStage.flags = 0;
+	computeShaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	computeShaderStage.module = shaderModule;
+	computeShaderStage.pName = u8"main";
+	computeShaderStage.pSpecializationInfo = nullptr;
+
+	computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	computePipelineCreateInfo.pNext = nullptr;
+	computePipelineCreateInfo.layout = pipelineLayout;
+	computePipelineCreateInfo.flags = 0;
+	computePipelineCreateInfo.stage = computeShaderStage;
+	computePipelineCreateInfo.basePipelineIndex = -1;
+	computePipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+	VkResult result = vkCreateComputePipelines(logicalDevices[0], VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &pipeline);
+
+	if (result == VK_SUCCESS) {
+		std::cout << "Compute Pipeline created successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't created compute pipeline.");
+}
+
+void VulkanEngine::createDescriptorSetPool() {
+	VkDescriptorPoolSize poolSizes[2];
+	poolSizes[0].descriptorCount = 1;
+	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+	poolSizes[1].descriptorCount = 1;
+	poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+	descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	descriptorPoolCreateInfo.pNext = nullptr;
+	descriptorPoolCreateInfo.flags = 0;
+	descriptorPoolCreateInfo.maxSets = 1;
+	descriptorPoolCreateInfo.poolSizeCount = 2;
+	descriptorPoolCreateInfo.pPoolSizes = poolSizes;
+
+	if (vkCreateDescriptorPool(logicalDevices[0], &descriptorPoolCreateInfo, nullptr, &descriptorPool) == VK_SUCCESS) {
+		std::cout << "Descriptor Set Pool created successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't create descriptor set pool.");
+}
+
+void VulkanEngine::allocateDescriptorSet() {
+	descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptorSetAllocateInfo.pNext = nullptr;
+	descriptorSetAllocateInfo.descriptorPool = descriptorPool;
+	descriptorSetAllocateInfo.descriptorSetCount = 1;
+	descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout;
+
+	if (vkAllocateDescriptorSets(logicalDevices[0], &descriptorSetAllocateInfo, &descriptorSet) == VK_SUCCESS) {
+		std::cout << "Descriptor Set allocated successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't allocate descriptor set.");
+
+}
+
+void VulkanEngine::updateDescriptorSet() {
+	VkDescriptorBufferInfo *descriptorSetBufferInfos = new VkDescriptorBufferInfo[2];
+	descriptorSetBufferInfos[0].buffer = buffers[0];
+	descriptorSetBufferInfos[0].offset = 0;
+	descriptorSetBufferInfos[0].range = VK_WHOLE_SIZE;
+
+	descriptorSetBufferInfos[1].buffer = buffers[1];
+	descriptorSetBufferInfos[1].offset = 0;
+	descriptorSetBufferInfos[1].range = VK_WHOLE_SIZE;
+
+	VkWriteDescriptorSet *descriptorSetWrites = new VkWriteDescriptorSet[2];
+	descriptorSetWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorSetWrites[0].pNext = nullptr;
+	descriptorSetWrites[0].dstSet = descriptorSet;
+	descriptorSetWrites[0].dstBinding = 0;
+	descriptorSetWrites[0].dstArrayElement = 0;
+	descriptorSetWrites[0].descriptorCount = 1;
+	descriptorSetWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorSetWrites[0].pImageInfo = nullptr;
+	descriptorSetWrites[0].pBufferInfo = descriptorSetBufferInfos;
+	descriptorSetWrites[0].pTexelBufferView = nullptr;
+
+	descriptorSetWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorSetWrites[1].pNext = nullptr;
+	descriptorSetWrites[1].dstSet = descriptorSet;
+	descriptorSetWrites[1].dstBinding = 1;
+	descriptorSetWrites[1].dstArrayElement = 0;
+	descriptorSetWrites[1].descriptorCount = 1;
+	descriptorSetWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptorSetWrites[1].pImageInfo = nullptr;
+	descriptorSetWrites[1].pBufferInfo = descriptorSetBufferInfos + 1;
+	descriptorSetWrites[1].pTexelBufferView = nullptr;
+
+	vkUpdateDescriptorSets(logicalDevices[0], 2, descriptorSetWrites, 0, nullptr);
+	std::cout << "Descriptor Set updated/written to successfully." << std::endl;
+}
+
+void VulkanEngine::compute() {
+	VkCommandPool commandPool = {};
+
+	VkCommandPoolCreateInfo commandPoolCreateInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr, 0, graphicQueueFamilyIndex };
+	VkResult result = vkCreateCommandPool(logicalDevices[0], &commandPoolCreateInfo, nullptr, &commandPool);
+
+	if (result == VK_SUCCESS) {
+		std::cout << "Command Pool created successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't create command pool.");
+
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferAllocateInfo.pNext = nullptr;
+	commandBufferAllocateInfo.commandBufferCount = 1;
+	commandBufferAllocateInfo.commandPool = commandPool;
+	commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+	VkCommandBuffer commandBuffer = {};
+
+	result = vkAllocateCommandBuffers(logicalDevices[0], &commandBufferAllocateInfo, &commandBuffer);
+
+	if (result == VK_SUCCESS)
+	{
+		std::cout << "Command Buffer allocated successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't allocate command buffer.");
+
+	VkCommandBufferBeginInfo commandBufferBeginInfo = {};
+	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	commandBufferBeginInfo.pInheritanceInfo = nullptr;
+	commandBufferBeginInfo.flags = 0;
+
+	result = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+
+	if (result == VK_SUCCESS)
+	{
+		std::cout << "Command Buffer began successfully." << std::endl;
+	}
+	else
+		throw VulkanException("Couldn't begin command buffer.");
+
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+	
+
+	VkBufferMemoryBarrier bufferMemoryBeforeBarrier = {};
+	VkBufferMemoryBarrier bufferMemoryAfterBarrier = {};
+
+	bufferMemoryBeforeBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	bufferMemoryBeforeBarrier.pNext = nullptr;
+	bufferMemoryBeforeBarrier.buffer = buffers[0];
+	bufferMemoryBeforeBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+	bufferMemoryBeforeBarrier.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT;
+	bufferMemoryBeforeBarrier.offset = 0;
+	bufferMemoryBeforeBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	bufferMemoryBeforeBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	bufferMemoryBeforeBarrier.size = VK_WHOLE_SIZE;
+
+	bufferMemoryAfterBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	bufferMemoryAfterBarrier.pNext = nullptr;
+	bufferMemoryAfterBarrier.buffer = buffers[1];
+	bufferMemoryAfterBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	bufferMemoryAfterBarrier.dstAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+	bufferMemoryAfterBarrier.offset = 0;
+	bufferMemoryAfterBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	bufferMemoryAfterBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	bufferMemoryAfterBarrier.size = VK_WHOLE_SIZE;
+
+
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &bufferMemoryBeforeBarrier, 0, nullptr);
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0, nullptr, 1, &bufferMemoryAfterBarrier, 0, nullptr);
+
+	vkCmdDispatch(commandBuffer, 1, 1, 1);
+
+	vkEndCommandBuffer(commandBuffer);
+
+	std::cout << "Command Buffer ended successfully." << std::endl;
+
+	VkSubmitInfo queueSubmit = {};
+	queueSubmit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	queueSubmit.pNext = nullptr;
+	queueSubmit.waitSemaphoreCount = 0;
+	queueSubmit.pWaitSemaphores = nullptr;
+	queueSubmit.pWaitDstStageMask = nullptr;
+	queueSubmit.commandBufferCount = 1;
+	queueSubmit.pCommandBuffers = &commandBuffer;
+	queueSubmit.signalSemaphoreCount = 0;
+	queueSubmit.pSignalSemaphores = nullptr;
+
+	VkFence queueComputeDoneFence = {};
+
+	VkFenceCreateInfo fenceCreateInfo = {};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceCreateInfo.pNext = nullptr;
+	fenceCreateInfo.flags = 0;
+
+	result = vkCreateFence(logicalDevices[0], &fenceCreateInfo, nullptr, &queueComputeDoneFence);
+
+	if (result != VK_SUCCESS)
+		throw VulkanException("Couldn't create fence.");
+
+	if (vkQueueSubmit(queue, 1, &queueSubmit, queueComputeDoneFence) == VK_SUCCESS) {
+		std::cout << "Command Buffer successfully submitted to queue.";
+	}
+	else
+		throw VulkanException("Couldn't submit command buffer.");
+
+	vkWaitForFences(logicalDevices[0], 1, &queueComputeDoneFence, VK_TRUE, 1000 * 1000000000);
+
+	vkResetFences(logicalDevices[0], 1, &queueComputeDoneFence);
+
+	VkDeviceSize mapSize;
+	void **pResultMappedMemory = new void*;
+
+
+	vkMapMemory(logicalDevices[0], memories[1], 0, 1024, 0, pResultMappedMemory);
+
+	vkDeviceWaitIdle(logicalDevices[0]);
+
+	unsigned char resultSampleValue = ((unsigned char*)*pResultMappedMemory)[0];
+	unsigned char resultSampleValue2 = ((unsigned char*)*pResultMappedMemory)[1];
+	unsigned char resultSampleValue3 = ((unsigned char*)*pResultMappedMemory)[2];
+
+	int dv = 0;
+	dv = 1;
 }

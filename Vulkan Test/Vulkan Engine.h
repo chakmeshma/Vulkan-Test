@@ -21,7 +21,7 @@ const uint16_t MAX_SPARSE_IMAGE_FORMAT_PROPERTIES_ARRAY_SIZE = MAX_DEFAULT_ARRAY
 
 class VulkanEngine {
 public:
-	VulkanEngine(HINSTANCE hInstance, HWND windowHandle);
+	VulkanEngine(HINSTANCE hInstance, HWND windowHandle, VulkanEngine** ppUnstableInstance);
 	~VulkanEngine();
 	void getInstanceExtensions();
 	void showDeviceExtensions();
@@ -44,6 +44,7 @@ private:
 	POSIXAllocator* sparseImageTerminationAllocator;
 	POSIXAllocator* surfaceCreationAllocator;
 	POSIXAllocator* swapchainCreationAllocator;
+	POSIXAllocator* swapchainTerminationAllocator;
 	VkAllocationCallbacks instanceCrationCallbacks;
 	VkAllocationCallbacks deviceCreationCallbacks;
 	VkAllocationCallbacks deviceTerminationCallbacks;
@@ -60,12 +61,13 @@ private:
 	VkAllocationCallbacks sparseImageTerminationCallbacks;
 	VkAllocationCallbacks surfaceCreationCallbacks;
 	VkAllocationCallbacks swapchainCreationCallbacks;
+	VkAllocationCallbacks swapchainTerminationCallbacks;
 	VkInstance instance;
 	std::mutex mtxLogicalDeviceHandle;
 	std::mutex mtxMemoryHandle;
-	std::mutex mtxImageHandle;
+	std::mutex mtxBufferHandle;
 	VkDevice logicalDevices[1];
-	VkDeviceQueueCreateInfo deviceQueueCreateInfo;
+	VkDeviceQueueCreateInfo deviceQueueCreateInfo = {};
 	VkInstanceCreateInfo instanceCreateInfo = {};
 	VkApplicationInfo appInfo = {};
 	uint32_t numberOfSupportedDevices = 1;
@@ -97,7 +99,7 @@ private:
 	uint32_t memoryTypeCount = 0;
 	VkMemoryAllocateInfo deviceMemoryAllocateInfo = {};
 	VkDeviceMemory* memories;// = new VkDeviceMemory[MAX_DEVICE_MEMORY_ALLOCATION_ARRAY_SIZE];
-	uint32_t deviceLocalExclusiveMemoryTypeIndex = -1;
+	uint32_t deviceLocalVisibleMemoryTypeIndex = -1;
 	VkDeviceSize memoryCommittedBytesCount = 0;
 	VkMappedMemoryRange memoryFlushRange = {};
 	VkMemoryRequirements imageMemoryRequirements = {};
@@ -125,6 +127,20 @@ private:
 	VkPresentModeKHR *surfaceSupportedPresentModes;
 	uint32_t swapchainImagesCount = 0;
 	VkImage *swapchainImages;
+	VkPresentInfoKHR presentInfo = {};
+	VkFence acquireNextImageIndexFence = {};
+	VkShaderModuleCreateInfo shaderModuleCreateInfo = {};
+	VkShaderModule shaderModule = {};
+	VkComputePipelineCreateInfo computePipelineCreateInfo = {};
+	VkPipeline pipeline = {};
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+	VkDescriptorSetLayout descriptorSetLayout = {};
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+	VkPipelineLayout pipelineLayout = {};
+	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
+	VkDescriptorPool descriptorPool = {};
+	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
+	VkDescriptorSet descriptorSet = {};
 
 	void init();
 	void createInstance();
@@ -142,9 +158,18 @@ private:
 	void createSparseImage();
 	void allocateDeviceMemory();
 	void getImageMemoryRequirements();
-	void bindImageMemory();
+	void bindBufferMemory();
 	void getQueue();
 	void getQueueFamilyPresentationSupport();
 	void createSurface();
 	void createSwapchain();
+	void waitToDraw();
+	void present(uint32_t swapchainPresentImageIndex);
+	void createShaderModule();
+	void createComputePipeline();
+	void createPipelineLayout();
+	void createDescriptorSetPool();
+	void allocateDescriptorSet();
+	void updateDescriptorSet();
+	void compute();
 };
