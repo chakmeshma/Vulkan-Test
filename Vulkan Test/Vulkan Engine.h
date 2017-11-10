@@ -107,7 +107,6 @@ private:
 	VkSparseImageMemoryRequirements *sparseImageMemoryRequirements;// = new VkSparseImageMemoryRequirements[MAX_SPARSE_IMAGE_MEMORY_REQUIREMENTS_ARRAY_SIZE];
 	uint32_t sparseMemoryRequirementsCount = 0;
 	VkImageCreateInfo sparseImageCreateInfo = { };
-	uint32_t memoryAllocationSize = 1024 * 1024 * 1024; //1GB
 	VkSparseImageFormatProperties *physicalDeviceSparseImageFormatProperties;// = new VkSparseImageFormatProperties[MAX_SPARSE_IMAGE_FORMAT_PROPERTIES_ARRAY_SIZE];
 	uint32_t physicalDeviceSparseImageFormatPropertiesCount = 0;
 	VkFormat imageFormat = VK_FORMAT_R32G32B32A32_UINT;
@@ -141,6 +140,8 @@ private:
 	VkDescriptorPool descriptorPool = {};
 	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
 	VkDescriptorSet descriptorSet = {};
+	VkDeviceSize bufferSize = 1024;
+	uint64_t memoryAllocationSize = bufferSize;
 
 	void init();
 	void createInstance();
@@ -152,11 +153,11 @@ private:
 	void createLogicalDevice();
 	void getPhysicalDeviceImageFormatProperties();
 	void getPhysicalDeviceSparseImageFormatProperties();
-	void createBuffer();
+	void createBuffers();
 	void createImage();
 	void createImageView();
 	void createSparseImage();
-	void allocateDeviceMemory();
+	void allocateDeviceMemories();
 	void getImageMemoryRequirements();
 	void bindBufferMemory();
 	void getQueue();

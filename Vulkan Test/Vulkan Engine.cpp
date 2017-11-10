@@ -109,12 +109,12 @@ void VulkanEngine::init() {
 	createLogicalDevice();
 	getDeviceLayers();
 	showDeviceExtensions();
-	createBuffer();
+	createBuffers();
 	getPhysicalDeviceImageFormatProperties();
 	getPhysicalDeviceSparseImageFormatProperties();
 	createImage();
 	//createSparseImage();
-	allocateDeviceMemory();
+	allocateDeviceMemories();
 	getImageMemoryRequirements();
 	bindBufferMemory();
 	//createImageView();
@@ -229,6 +229,10 @@ void VulkanEngine::getPhysicalDevicePropertiesAndFeatures() {
 	std::cout << "Max Total Working Group Invocations: " << deviceProperties.limits.maxComputeWorkGroupInvocations << std::endl;
 
 	std::cout << "Max bound descriptor sets in a pipeline layout: " << deviceProperties.limits.maxBoundDescriptorSets << std::endl;
+
+	std::cout << "Minimum Uniform Buffer offest alignment: " << deviceProperties.limits.minUniformBufferOffsetAlignment << std::endl;;
+
+	std::cout << "Maximum Texel Buffer elements: " << deviceProperties.limits.maxTexelBufferElements << std::endl;;
 
 	vkGetPhysicalDeviceMemoryProperties(physicalDevices[0], &deviceMemoryProperties);
 
@@ -489,19 +493,19 @@ void VulkanEngine::createLogicalDevice() {
 	}
 }
 
-void VulkanEngine::createBuffer() {
+void VulkanEngine::createBuffers() {
 
 	buffers = new VkBuffer[2];
 
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.pNext = nullptr;
 	bufferCreateInfo.flags = 0;
-	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	bufferCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	bufferCreateInfo.size = 1024;
+	bufferCreateInfo.size = bufferSize;
 
 	if (vkCreateBuffer(logicalDevices[0], &bufferCreateInfo, &bufferCreationCallbacks, buffers) == VK_SUCCESS) {
-		std::cout << "Buffer (1KB) object created successfully.\n";
+		std::cout << "Buffer object created successfully.\n";
 	}
 	else {
 		throw VulkanException("Buffer creation failed.");
@@ -510,12 +514,12 @@ void VulkanEngine::createBuffer() {
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.pNext = nullptr;
 	bufferCreateInfo.flags = 0;
-	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	bufferCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	bufferCreateInfo.size = 1024;
+	bufferCreateInfo.size = bufferSize;
 
 	if (vkCreateBuffer(logicalDevices[0], &bufferCreateInfo, &bufferCreationCallbacks, buffers + 1) == VK_SUCCESS) {
-		std::cout << "Buffer (1KB) object created successfully.\n";
+		std::cout << "Buffer object created successfully.\n";
 	}
 	else {
 		throw VulkanException("Buffer creation failed.");
@@ -783,10 +787,10 @@ void VulkanEngine::createImageView() {
 	}
 }
 
-void VulkanEngine::allocateDeviceMemory() {
+void VulkanEngine::allocateDeviceMemories() {
 	deviceMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	deviceMemoryAllocateInfo.pNext = nullptr;
-	deviceMemoryAllocateInfo.allocationSize = memoryAllocationSize; //1GB
+	deviceMemoryAllocateInfo.allocationSize = memoryAllocationSize; //1KB
 	deviceMemoryAllocateInfo.memoryTypeIndex = deviceLocalVisibleMemoryTypeIndex;
 
 	VkResult result;
@@ -825,12 +829,12 @@ void VulkanEngine::allocateDeviceMemory() {
 
 		vkGetDeviceMemoryCommitment(logicalDevices[0], memories[0], &memoryCommittedBytesCount);
 
-		std::cout << "Device Memory Allocation bytes commited:\t" << ((float)memoryCommittedBytesCount) / (1024 * 1024) << "MB" << std::endl;
+		std::cout << "Device Memory Allocation bytes commited:\t" << ((float)memoryCommittedBytesCount) / (1024) << "KB" << std::endl;
 
 
 		pLock6 = new std::unique_lock<std::mutex>(mtxMemoryHandle);
 		{
-			result = vkMapMemory(logicalDevices[0], memories[0], 0, VK_WHOLE_SIZE, 0, mappedMemory);
+			result = vkMapMemory(logicalDevices[0], memories[0], 0, memoryAllocationSize, 0, mappedMemory);
 		}
 		pLock6->unlock();
 		pLock6->release();
@@ -844,8 +848,10 @@ void VulkanEngine::allocateDeviceMemory() {
 			throw VulkanException("Memory mapping failed.");
 		}
 
-		std::cout << "Writing to visible mapped memory... (1GB)" << std::endl;
-		memset(*mappedMemory, 2, memoryAllocationSize);
+		std::cout << "Writing to visible mapped memory... (1KB)" << std::endl;
+
+		memset(*mappedMemory, 3, memoryAllocationSize);
+
 		std::cout << "Writing finished." << std::endl;
 
 		memoryFlushRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
@@ -854,8 +860,10 @@ void VulkanEngine::allocateDeviceMemory() {
 		memoryFlushRange.offset = 0;
 		memoryFlushRange.memory = memories[0];
 
-		std::cout << "Flushing mapped memory... (1GB)" << std::endl;
+		std::cout << "Flushing mapped memory... (1KB)" << std::endl;
 		result = vkFlushMappedMemoryRanges(logicalDevices[0], 1, &memoryFlushRange);
+
+		std::cout << "Device Memory Allocation bytes commited (after Flush):\t" << ((float)memoryCommittedBytesCount) / (1024) << "KB" << std::endl;
 
 		switch (result) {
 		case VK_SUCCESS:
@@ -874,7 +882,7 @@ void VulkanEngine::allocateDeviceMemory() {
 		pLock7->unlock();
 		pLock7->release();
 
-		/*std::cout << "Invalidating mapped memory... (1GB)" << std::endl;
+		/*std::cout << "Invalidating mapped memory... (1KB)" << std::endl;
 		result = vkInvalidateMappedMemoryRanges(logicalDevices[0], 1, &memoryFlushRange);*/
 
 		//switch (result) {
@@ -1381,11 +1389,17 @@ void VulkanEngine::createPipelineLayout() {
 	else
 		throw VulkanException("Couldn't create descriptor set layout.");
 
+	VkPushConstantRange pushConstantRanage = {};
+	pushConstantRanage.offset = 0;
+	pushConstantRanage.size = 4;
+	pushConstantRanage.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+
 	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutCreateInfo.pNext = nullptr;
 	pipelineLayoutCreateInfo.flags = 0;
-	pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
-	pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRanage;
+	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &descriptorSetLayout;
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 
@@ -1547,7 +1561,7 @@ void VulkanEngine::compute() {
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-	
+
 
 	VkBufferMemoryBarrier bufferMemoryBeforeBarrier = {};
 	VkBufferMemoryBarrier bufferMemoryAfterBarrier = {};
@@ -1575,6 +1589,11 @@ void VulkanEngine::compute() {
 
 	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 1, &bufferMemoryBeforeBarrier, 0, nullptr);
 	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0, nullptr, 1, &bufferMemoryAfterBarrier, 0, nullptr);
+
+	unsigned int pushConstant = 3;
+
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, 4, &pushConstant);
+
 
 	vkCmdDispatch(commandBuffer, 1, 1, 1);
 
@@ -1619,14 +1638,24 @@ void VulkanEngine::compute() {
 	void **pResultMappedMemory = new void*;
 
 
-	vkMapMemory(logicalDevices[0], memories[1], 0, 1024, 0, pResultMappedMemory);
+	vkMapMemory(logicalDevices[0], memories[1], 0, VK_WHOLE_SIZE, 0, pResultMappedMemory);
 
-	vkDeviceWaitIdle(logicalDevices[0]);
+	uint32_t counter = 0;
 
-	unsigned char resultSampleValue = ((unsigned char*)*pResultMappedMemory)[0];
-	unsigned char resultSampleValue2 = ((unsigned char*)*pResultMappedMemory)[1];
-	unsigned char resultSampleValue3 = ((unsigned char*)*pResultMappedMemory)[2];
+	std::string readableOutputData = "";
+	
+	uint16_t padding = 1;
 
-	int dv = 0;
-	dv = 1;
+	for (int i = 0; i < memoryAllocationSize + padding; i++)
+	{
+		if (((unsigned char*)(*pResultMappedMemory))[i] == 6)
+			counter++;
+		char tmp[3];
+
+		unsigned char byte = *(((unsigned char*)(*pResultMappedMemory)) + i);
+		sprintf_s(tmp, "%02X", byte);
+		readableOutputData += tmp;
+	}
+
+	vkUnmapMemory(logicalDevices[0], memories[1]);
 }
