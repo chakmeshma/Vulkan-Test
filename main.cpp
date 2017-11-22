@@ -9,7 +9,8 @@ VulkanEngine *engine = NULL;
 const char g_szClassName[] = "VulkanEngine Test Window Class";
 HWND windowHandle = NULL;
 bool vulkanInited = false;
-VulkanEngine **pUnstableInstance = new VulkanEngine*;
+VulkanEngine **pUnstableInstance = new VulkanEngine *;
+bool quitMessageReceived = false;
 
 void deleteEngineOrUnstableEngine() {
     if (*pUnstableInstance != NULL)
@@ -19,10 +20,14 @@ void deleteEngineOrUnstableEngine() {
 }
 
 BOOL WINAPI closeHandler(DWORD dwCtrlType) {
-    if (dwCtrlType == CTRL_CLOSE_EVENT) {
-        engine->terminating = true;
+    if (!engine->terminating) {
+        if (dwCtrlType == CTRL_CLOSE_EVENT) {
+            engine->terminating = true;
 
-        deleteEngineOrUnstableEngine();
+            deleteEngineOrUnstableEngine();
+
+            quitMessageReceived = true;
+        }
     }
 
     return TRUE;
@@ -55,11 +60,8 @@ bool initVulkan(HINSTANCE hInstance, HWND windowHandle) {
 }
 
 
-
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    switch (msg)
-    {
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
         case WM_SHOWWINDOW:
 #ifndef NDEBUG
             LoadLibrary("DevIL_debug.dll");
@@ -75,13 +77,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             else
                 return DefWindowProc(hwnd, msg, wParam, lParam);
         case WM_CLOSE:
-            engine->terminating = true;
-            deleteEngineOrUnstableEngine();
-            DestroyWindow(hwnd);
+            if (!engine->terminating) {
+                engine->terminating = true;
+                deleteEngineOrUnstableEngine();
+                DestroyWindow(hwnd);
+            }
             break;
         case WM_DESTROY:
             engine->terminating = true;
             PostQuitMessage(0);
+            quitMessageReceived = true;
             break;
         default:
             return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -104,52 +109,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 //}
 
 void initWindow(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-                LPSTR lpCmdLine, int nCmdShow)
-{
+                LPSTR lpCmdLine, int nCmdShow) {
 
 //    extractResources();
 
     WNDCLASSEX wc;
     MSG msg;
 #ifdef FULLSCREEN
-    wc.cbSize = sizeof(WNDCLASSEX);
-	wc.style = 0;
-	wc.lpfnWndProc = WndProc;
-	wc.cbClsExtra = 0;
-	wc.cbWndExtra = 0;
-	wc.hInstance = hInstance;
-	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wc.lpszMenuName = NULL;
-	wc.lpszClassName = g_szClassName;
-	wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
-
-	if (!RegisterClassEx(&wc))
-		throw std::exception("Window registration failed.");
-
-	windowHandle = CreateWindowEx(
-		WS_EX_TOPMOST,
-		g_szClassName,
-		"VulkanEngine Test",
-		WS_POPUP,
-		0, 0, 1920, 1080,
-		NULL, NULL, hInstance, NULL);
-
-	ShowWindow(windowHandle, nCmdShow);
-	UpdateWindow(windowHandle);
-
-	DEVMODE screen;
-	memset(&screen, 0, sizeof(screen));
-	screen.dmSize = sizeof(screen);
-	screen.dmPelsWidth = 1920;
-	screen.dmPelsHeight = 1080;
-	screen.dmBitsPerPel = 32;
-	screen.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-	ChangeDisplaySettings(&screen, CDS_FULLSCREEN);
-
-	ShowCursor(false);
-#else
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = 0;
     wc.lpfnWndProc = WndProc;
@@ -159,6 +125,44 @@ void initWindow(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszMenuName = NULL;
+    wc.lpszClassName = g_szClassName;
+    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+
+    if (!RegisterClassEx(&wc))
+        throw std::exception("Window registration failed.");
+
+    windowHandle = CreateWindowEx(
+        WS_EX_TOPMOST,
+        g_szClassName,
+        "VulkanEngine Test",
+        WS_POPUP,
+        0, 0, 1920, 1080,
+        NULL, NULL, hInstance, NULL);
+
+    ShowWindow(windowHandle, nCmdShow);
+    UpdateWindow(windowHandle);
+
+    DEVMODE screen;
+    memset(&screen, 0, sizeof(screen));
+    screen.dmSize = sizeof(screen);
+    screen.dmPelsWidth = 1920;
+    screen.dmPelsHeight = 1080;
+    screen.dmBitsPerPel = 32;
+    screen.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+    ChangeDisplaySettings(&screen, CDS_FULLSCREEN);
+
+    ShowCursor(false);
+#else
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.style = 0;
+    wc.lpfnWndProc = WndProc;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = hInstance;
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH) (COLOR_WINDOW + 1);
     wc.lpszMenuName = NULL;
     wc.lpszClassName = g_szClassName;
     wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
@@ -181,7 +185,6 @@ void initWindow(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     if (windowHandle == NULL)
         throw std::exception();
 
-    bool quitMessageReceived = false;
 
     while (!quitMessageReceived) {
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -206,7 +209,7 @@ int main() {
 
     //Consequently, The first WM_SHOWWINDOW message starts the VulkanEngine initialization.
 //    initWindow(GetModuleHandle(NULL), NULL, "", 1);
-    initWindow(GetModuleHandle(NULL), NULL, (LPSTR)"", 1);
+    initWindow(GetModuleHandle(NULL), NULL, (LPSTR) "", 1);
 
     return EXIT_SUCCESS;
 }

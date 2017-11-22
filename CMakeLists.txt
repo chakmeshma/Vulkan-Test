@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.8.2)
 project(Vulkan_Test)
 
-IF    (CMAKE_COMPILER_IS_GNUCC)
-    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions")
-ELSEIF(MSVC71 OR MSVC80)
-    SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /EHc-")
+IF (CMAKE_COMPILER_IS_GNUCC)
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions")
+ELSEIF (MSVC71 OR MSVC80)
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /EHc-")
 ENDIF (CMAKE_COMPILER_IS_GNUCC)
 
 # Creates C resources file from files in given directory
 function(create_resources dir coutput houtput)
     # Create empty output file
-    file(REMOVE  ${coutput})
-    file(REMOVE  ${houtput})
+    file(REMOVE ${coutput})
+    file(REMOVE ${houtput})
 
     file(WRITE ${coutput} "")
     file(WRITE ${houtput} "")
@@ -21,7 +21,7 @@ function(create_resources dir coutput houtput)
     # Iterate through input files
     file(APPEND ${houtput} "#ifndef VULKAN_TEST_SHADERS_H\n#define VULKAN_TEST_SHADERS_H\n")
 
-    foreach(bin ${bins})
+    foreach (bin ${bins})
         # Get short filename
         string(REGEX MATCH "([^/]+)$" filename ${bin})
         # Replace filename spaces & extension separator for C compatibility
@@ -33,7 +33,7 @@ function(create_resources dir coutput houtput)
         # Append data to output file
         file(APPEND ${coutput} "const unsigned char ${filename}[] = {${filedata}}; \nconst unsigned long long ${filename}_size = sizeof(${filename});\n")
         file(APPEND ${houtput} "extern \"C\" const unsigned char ${filename}[];\nextern \"C\" const unsigned long long ${filename}_size;\n")
-    endforeach()
+    endforeach ()
 
     file(APPEND ${houtput} "#endif\n")
 endfunction()
@@ -53,7 +53,7 @@ set(SOURCE_FILES main.cpp "Vulkan Engine.cpp" "Vulkan Engine Exception.cpp")
 
 add_executable(Vulkan_Test ${SOURCE_FILES})
 
-target_link_libraries (Vulkan_Test ${PROJECT_SOURCE_DIR}/../../../../VulkanSDK/1.0.65.0/Lib/vulkan-1.lib ${PROJECT_SOURCE_DIR}/../../Desktop/DevIL/DevIL/build/lib/x64/Release/DevIL.lib)
+target_link_libraries(Vulkan_Test ${PROJECT_SOURCE_DIR}/../../../../VulkanSDK/1.0.65.0/Lib/vulkan-1.lib ${PROJECT_SOURCE_DIR}/../../Desktop/DevIL/DevIL/build/lib/x64/Release/DevIL.lib)
 #        ${PROJECT_SOURCE_DIR}/linkables/0_png.o
 #        ${PROJECT_SOURCE_DIR}/linkables/0n_png.o
 #        ${PROJECT_SOURCE_DIR}/linkables/0s_png.o
