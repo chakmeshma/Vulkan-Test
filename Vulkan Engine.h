@@ -131,8 +131,6 @@ private:
     VkImageCreateInfo sparseImageCreateInfo = {};
     VkSparseImageFormatProperties *physicalDeviceSparseImageFormatProperties;
     uint32_t physicalDeviceSparseImageFormatPropertiesCount = 0;
-    VkFormat imageFormat = VK_FORMAT_R32G32B32A32_UINT;
-    std::string imageFormatString = "unsigned int R32G32B32A32";
     VkQueue graphicsQueue;
     VkQueue transferQueue;
     HINSTANCE hInstance;
@@ -147,6 +145,7 @@ private:
     VkSurfaceFormatKHR *surfaceSupportedFormats;
     uint32_t surfaceSupportedPresentModesCount = 0;
     VkPresentModeKHR *surfaceSupportedPresentModes;
+    VkPresentModeKHR surfacePresentMode;
     uint32_t swapchainImagesCount = 0;
     VkImage *swapchainImages;
     VkImageView *swapchainImageViews;
@@ -188,6 +187,7 @@ private:
     VkCommandPool renderCommandPool;
     VkCommandPool transferCommandPool;
     VkCommandBuffer renderCommandBuffer;
+    VkFormat surfaceImageFormat;
     VkFormat depthFormat;
     std::vector<attribute> sortedAttributes[MAX_VERTEX_BUFFER_ARRAY_SIZE];
     std::vector<uint32_t> sortedIndices[MAX_INDEX_BUFFER_ARRAY_SIZE];
@@ -252,7 +252,7 @@ private:
 
     void createLogicalDevice();
 
-    void getPhysicalDeviceImageFormatProperties();
+//    void getPhysicalDeviceImageFormatProperties(VkFormat imageFormat);
 
     void getPhysicalDeviceSparseImageFormatProperties();
 

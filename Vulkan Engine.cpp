@@ -1306,208 +1306,209 @@ void VulkanEngine::createDepthImageAndImageview() {
     VKASSERT_SUCCESS(vkCreateImageView(logicalDevices[0], &depthImageViewCreateInfo, nullptr, &depthImageView));
 }
 
-void VulkanEngine::getPhysicalDeviceImageFormatProperties() {
-    vkGetPhysicalDeviceFormatProperties(physicalDevices[0], imageFormat, &formatProperties);
-
-    std::string bufferFormatFeatureFlagsString = "";
-    std::string linearTilingFormatFeatureFlagsString = "";
-    std::string optimalTilingFormatFeatureFlagsString = "";
-
-#pragma region format features bits
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
-        bufferFormatFeatureFlagsString += "SAMPLED_IMAGED ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
-        bufferFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
-        bufferFormatFeatureFlagsString += "STORAGE_IMAGE ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
-        bufferFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
-        bufferFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
-        bufferFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
-        bufferFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
-        bufferFormatFeatureFlagsString += "VERTEX_BUFFER ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
-        bufferFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
-        bufferFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
-        bufferFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
-        bufferFormatFeatureFlagsString += "BLIT_SRC ";
-    }
-
-    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
-        bufferFormatFeatureFlagsString += "BLIT_DST ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "SAMPLED_IMAGED ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "STORAGE_IMAGE ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "VERTEX_BUFFER ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "BLIT_SRC ";
-    }
-
-    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
-        linearTilingFormatFeatureFlagsString += "BLIT_DST ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "SAMPLED_IMAGED ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "STORAGE_IMAGE ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "VERTEX_BUFFER ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "BLIT_SRC ";
-    }
-
-    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
-        optimalTilingFormatFeatureFlagsString += "BLIT_DST ";
-    }
-#pragma endregion
-
-    std::cout << "Physical Device format support features pertaining to format " << imageFormatString << std::endl;
-    std::cout << "\tBuffer format features flags: " << bufferFormatFeatureFlagsString << std::endl;
-    std::cout << "\tLinear tiling format feature flags: " << linearTilingFormatFeatureFlagsString << std::endl;
-    std::cout << "\tOptimal tiling format feature flags: " << optimalTilingFormatFeatureFlagsString << std::endl;
-
-    VkResult result = vkGetPhysicalDeviceImageFormatProperties(physicalDevices[0], VK_FORMAT_R8G8B8A8_UNORM,
-                                                               VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_LINEAR,
-                                                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                                               VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT,
-                                                               &imageFormatProperties);
-    float maxResourceSizeGB;
-    VkSampleCountFlags sampleCountFlags;
-    uint32_t sampleCount;
-
-    switch (result) {
-        case VK_SUCCESS:
-            std::cout
-                    << "Physical Device support extent pertaining to image format R8G8B8A8_UNORM (2D) with optimal tiling usable as source and destination of transfer commands, allowing image view creation off itself:\n";
-
-            maxResourceSizeGB = ((float) imageFormatProperties.maxResourceSize) / (1024 * 1024 * 1024);
-
-            std::cout << "\tMax Array Layers: " << imageFormatProperties.maxArrayLayers << std::endl;
-            std::cout << "\tMax MimMap Levels: " << imageFormatProperties.maxMipLevels << std::endl;
-            std::cout << "\tMax Resource Size: " << maxResourceSizeGB << "GB" << std::endl;
-            std::cout << "\tMax Sample Count: " << imageFormatProperties.sampleCounts << std::endl;
-            break;
-        case VK_ERROR_OUT_OF_HOST_MEMORY:
-            throw VulkanException("Couldn't fetch image format properties, out of host memory.");
-            break;
-        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-            throw VulkanException("Couldn't fetch image format properties, out of device memory.");
-            break;
-        case VK_ERROR_FORMAT_NOT_SUPPORTED:
-            throw VulkanException("Format not supported.");
-            break;
-    }
-}
+//void VulkanEngine::getPhysicalDeviceImageFormatProperties(VkFormat imageFormat) {
+//    vkGetPhysicalDeviceFormatProperties(physicalDevices[0], imageFormat, &formatProperties);
+//
+//    std::string bufferFormatFeatureFlagsString = "";
+//    std::string linearTilingFormatFeatureFlagsString = "";
+//    std::string optimalTilingFormatFeatureFlagsString = "";
+//
+//#pragma region format features bits
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "SAMPLED_IMAGED ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "STORAGE_IMAGE ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "VERTEX_BUFFER ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "BLIT_SRC ";
+//    }
+//
+//    if (formatProperties.bufferFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
+//        bufferFormatFeatureFlagsString += "BLIT_DST ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "SAMPLED_IMAGED ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "STORAGE_IMAGE ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "VERTEX_BUFFER ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "BLIT_SRC ";
+//    }
+//
+//    if (formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
+//        linearTilingFormatFeatureFlagsString += "BLIT_DST ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "SAMPLED_IMAGED ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "SAMPLED_IMAGE_FILTER_LINEAR ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "STORAGE_IMAGE ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "STORAGE_IMAGE_ATOMIC ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "UNIFORM_TEXEL_BUFFER ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "STORAGE_TEXEL_BUFFER_ATOMIC ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "VERTEX_BUFFER ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "COLOR_ATTACHMENT_BLEND ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "DEPTH_STENCIL_ATTACHMENT ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "BLIT_SRC ";
+//    }
+//
+//    if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT != 0) {
+//        optimalTilingFormatFeatureFlagsString += "BLIT_DST ";
+//    }
+//#pragma endregion
+//
+//    std::string imageFormatString = ""; // INCOMPLETE
+//    std::cout << "Physical Device format support features pertaining to format " << imageFormatString << std::endl;
+//    std::cout << "\tBuffer format features flags: " << bufferFormatFeatureFlagsString << std::endl;
+//    std::cout << "\tLinear tiling format feature flags: " << linearTilingFormatFeatureFlagsString << std::endl;
+//    std::cout << "\tOptimal tiling format feature flags: " << optimalTilingFormatFeatureFlagsString << std::endl;
+//
+//    VkResult result = vkGetPhysicalDeviceImageFormatProperties(physicalDevices[0], VK_FORMAT_R8G8B8A8_UNORM,
+//                                                               VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_LINEAR,
+//                                                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+//                                                               VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT,
+//                                                               &imageFormatProperties);
+//    float maxResourceSizeGB;
+//    VkSampleCountFlags sampleCountFlags;
+//    uint32_t sampleCount;
+//
+//    switch (result) {
+//        case VK_SUCCESS:
+//            std::cout
+//                    << "Physical Device support extent pertaining to image format R8G8B8A8_UNORM (2D) with optimal tiling usable as source and destination of transfer commands, allowing image view creation off itself:\n";
+//
+//            maxResourceSizeGB = ((float) imageFormatProperties.maxResourceSize) / (1024 * 1024 * 1024);
+//
+//            std::cout << "\tMax Array Layers: " << imageFormatProperties.maxArrayLayers << std::endl;
+//            std::cout << "\tMax MimMap Levels: " << imageFormatProperties.maxMipLevels << std::endl;
+//            std::cout << "\tMax Resource Size: " << maxResourceSizeGB << "GB" << std::endl;
+//            std::cout << "\tMax Sample Count: " << imageFormatProperties.sampleCounts << std::endl;
+//            break;
+//        case VK_ERROR_OUT_OF_HOST_MEMORY:
+//            throw VulkanException("Couldn't fetch image format properties, out of host memory.");
+//            break;
+//        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+//            throw VulkanException("Couldn't fetch image format properties, out of device memory.");
+//            break;
+//        case VK_ERROR_FORMAT_NOT_SUPPORTED:
+//            throw VulkanException("Format not supported.");
+//            break;
+//    }
+//}
 
 //void VulkanEngine Engine::createImageView() {
 //	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -1899,15 +1900,48 @@ void VulkanEngine::createSwapchain() {
     uint32_t supportedFormatColorSpacePairIndex = -1;
     uint32_t supportedPresentModeIndex = -1;
 
-    for (int i = 0; i < surfaceSupportedFormatsCount; i++) {
-        if (surfaceSupportedFormats[i].format == VK_FORMAT_R8G8B8A8_UNORM) {
-            supportedFormatColorSpacePairIndex = i;
-            break;
-        }
-    }
+//    for (int i = 0; i < surfaceSupportedFormatsCount; i++) {
+//        if (surfaceSupportedFormats[i].format == VK_FORMAT_) {
+//            supportedFormatColorSpacePairIndex = i;
+//            break;
+//        }
+//    }
+
+    supportedFormatColorSpacePairIndex= 0 ; // Selecing the first supported format
 
     if (supportedFormatColorSpacePairIndex == -1)
         throw VulkanException("Couldn't find R8G8B8A8_UNORM format in supported formats.");
+    else {
+        std::string formatString = "";
+
+        surfaceImageFormat = surfaceSupportedFormats[supportedFormatColorSpacePairIndex].format;
+
+        switch(surfaceSupportedFormats[supportedFormatColorSpacePairIndex].format) {
+            case VK_FORMAT_R8G8B8A8_UNORM:
+                formatString = "R8G8B8A8_UNORM";
+                break;
+            case VK_FORMAT_R8G8B8A8_UINT:
+                formatString = "R8G8B8A8_UINT";
+                break;
+            case VK_FORMAT_R8G8B8A8_USCALED:
+                formatString = "R8G8B8A8_USCALED";
+                break;
+            case VK_FORMAT_R8G8B8A8_SSCALED:
+                formatString = "R8G8B8A8_SSCALED";
+                break;
+            case VK_FORMAT_R8G8B8A8_SRGB:
+                formatString = "R8G8B8A8_SRGB";
+                break;
+            case VK_FORMAT_R8G8B8A8_SNORM:
+                formatString = "R8G8B8A8_SNORM";
+                break;
+            case VK_FORMAT_R8G8B8A8_SINT:
+                formatString = "R8G8B8A8_SINT";
+                break;
+        }
+
+        std::cout << "Selected surface image format: " << formatString << std::endl;
+    }
 
     if (vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevices[0], surface, &surfaceSupportedPresentModesCount,
                                                   nullptr) != VK_SUCCESS) {
@@ -1920,13 +1954,7 @@ void VulkanEngine::createSwapchain() {
                                                   surfaceSupportedPresentModes) != VK_SUCCESS) {
         throw VulkanException("Couldn't get surface supported presentation modes.");
     }
-
-    for (int i = 0; i < surfaceSupportedPresentModesCount; i++) {
-        if (surfaceSupportedPresentModes[i] == VK_PRESENT_MODE_FIFO_KHR) {
-            supportedPresentModeIndex = i;
-            break;
-        }
-    }
+    surfacePresentMode = surfaceSupportedPresentModes[0]; // Selecing the first supported present mode
 
     if (surfaceSupportedPresentModesCount == -1)
         throw VulkanException("Couldn't find IMMEDIATE present mode in supported present modes.");
@@ -1955,7 +1983,7 @@ void VulkanEngine::createSwapchain() {
     swapchainCreateInfo.queueFamilyIndexCount = 0;
     swapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    swapchainCreateInfo.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    swapchainCreateInfo.presentMode = surfacePresentMode;
     swapchainCreateInfo.clipped = VK_TRUE;
 
     VkResult result = vkCreateSwapchainKHR(logicalDevices[0], &swapchainCreateInfo, nullptr, &swapchain);
@@ -2049,7 +2077,7 @@ void VulkanEngine::present(uint32_t swapchainPresentImageIndex) {
 void VulkanEngine::createRenderpass() {
     VkAttachmentDescription attachments[2];
     attachments[0].flags = 0;
-    attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attachments[0].format = surfaceImageFormat;
     attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
     attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -2171,7 +2199,7 @@ void VulkanEngine::createSwapchainImageViews() {
         swapchainImageViewCreateInfo.flags = 0;
         swapchainImageViewCreateInfo.image = swapchainImages[i];
         swapchainImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        swapchainImageViewCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+        swapchainImageViewCreateInfo.format = surfaceImageFormat;
         swapchainImageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_R;
         swapchainImageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_G;
         swapchainImageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_B;
@@ -2577,7 +2605,7 @@ void VulkanEngine::render(uint32_t drawableImageIndex) {
         viewMatrices[0][2] = 0.0f;
         viewMatrices[0][6] = 0.0f;
         viewMatrices[0][10] = 1.0f;
-        viewMatrices[0][14] = -18.85f;    // z translate
+        viewMatrices[0][14] = -1.85f;    // z translate
         viewMatrices[0][3] = 0.0f;
         viewMatrices[0][7] = 0.0f;
         viewMatrices[0][11] = 0.0f;
