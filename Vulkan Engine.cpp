@@ -92,11 +92,16 @@ void VulkanEngine::init() {
     createSwapchainImageViews(); // create swapchain imageviews (framebuffer color attachment)
     createRenderpass(); // create renderpass
     createFramebuffers(); // create framebuffer
-    createVertexGraphicsShaderModule(); // create vertex shader
-    createFragmentGraphicsShaderModule(); // create fragment shader
-//    createGeometryGraphicsShaderModule(); // create geometry shader
+    createGraphicsShaderModule("vert.spv", &graphicsVertexShaderModule); // create vertex shader
+    createGraphicsShaderModule("frag.spv", &graphicsFragmentShaderModule); // create fragment shader
+    createGraphicsShaderModule("debug_vert.spv", &graphicsNormalViewerVertexShaderModule); // create debug vertex shader
+    createGraphicsShaderModule("debug_geom.spv",
+                               &graphicsNormalViewerGeometryShaderModule); // create debug geometry shader
+    createGraphicsShaderModule("debug_frag.spv",
+                               &graphicsNormalViewerFragmentShaderModule); // create debug fragment shader
     createPipelineAndDescriptorSetsLayout(); // create pipeline layout
     createGraphicsPipeline(); //create pipeline
+    createGraphicsNormalViewerPipeline();
     createRenderCommandPool(); // create render commandpool
     createTransferCommandPool(); // create render commandpool
     commitBuffers();
@@ -1907,7 +1912,7 @@ void VulkanEngine::createSwapchain() {
 //        }
 //    }
 
-    supportedFormatColorSpacePairIndex= 0 ; // Selecing the first supported format
+    supportedFormatColorSpacePairIndex = 0; // Selecing the first supported format
 
     if (supportedFormatColorSpacePairIndex == -1)
         throw VulkanException("Couldn't find R8G8B8A8_UNORM format in supported formats.");
@@ -1916,7 +1921,7 @@ void VulkanEngine::createSwapchain() {
 
         surfaceImageFormat = surfaceSupportedFormats[supportedFormatColorSpacePairIndex].format;
 
-        switch(surfaceSupportedFormats[supportedFormatColorSpacePairIndex].format) {
+        switch (surfaceSupportedFormats[supportedFormatColorSpacePairIndex].format) {
             case VK_FORMAT_R8G8B8A8_UNORM:
                 formatString = "R8G8B8A8_UNORM";
                 break;
@@ -2383,9 +2388,13 @@ void VulkanEngine::createGraphicsPipeline() {
         throw VulkanException("Couldn't create graphics pipeline.");
 }
 
-void VulkanEngine::createVertexGraphicsShaderModule() {
+void VulkanEngine::createGraphicsShaderModule(const char *shaderFileName, VkShaderModule *shaderModule) {
     void *pShaderData;
-    DWORD shaderSize = loadShaderCode(".\\Resources\\vert.spv", (char **) &pShaderData);
+
+    std::string filePath = ".\\Resources\\";
+    filePath.append(shaderFileName);
+
+    DWORD shaderSize = loadShaderCode(filePath.c_str(), (char **) &pShaderData);
 
     shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shaderModuleCreateInfo.pNext = nullptr;
@@ -2393,7 +2402,7 @@ void VulkanEngine::createVertexGraphicsShaderModule() {
     shaderModuleCreateInfo.flags = 0;
     shaderModuleCreateInfo.pCode = (uint32_t *) pShaderData;
 
-    if (vkCreateShaderModule(logicalDevices[0], &shaderModuleCreateInfo, nullptr, &graphicsVertexShaderModule) ==
+    if (vkCreateShaderModule(logicalDevices[0], &shaderModuleCreateInfo, nullptr, shaderModule) ==
         VK_SUCCESS) {
         std::cout << "Graphics Shader Module created successfully." << std::endl;
     } else
@@ -2416,40 +2425,40 @@ unsigned long VulkanEngine::loadShaderCode(const char *fileName, char **fileData
     return fileSize;
 }
 
-void VulkanEngine::createGeometryGraphicsShaderModule() {
-
-    void *pShaderData;
-    DWORD shaderSize = loadShaderCode(".\\Resources\\geom.spv", (char **) &pShaderData);
-
-    shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shaderModuleCreateInfo.pNext = nullptr;
-    shaderModuleCreateInfo.codeSize = shaderSize;
-    shaderModuleCreateInfo.flags = 0;
-    shaderModuleCreateInfo.pCode = (uint32_t *) pShaderData;
-
-    if (vkCreateShaderModule(logicalDevices[0], &shaderModuleCreateInfo, nullptr, &graphicsGeometryShaderModule) ==
-        VK_SUCCESS) {
-        std::cout << "Graphics Shader Module created successfully." << std::endl;
-    } else
-        throw VulkanException("Couldn't create fragment graphics shader module.");
-}
-
-void VulkanEngine::createFragmentGraphicsShaderModule() {
-    void *pShaderData;
-    DWORD shaderSize = loadShaderCode(".\\Resources\\frag.spv", (char **) &pShaderData);
-
-    shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shaderModuleCreateInfo.pNext = nullptr;
-    shaderModuleCreateInfo.codeSize = shaderSize;
-    shaderModuleCreateInfo.flags = 0;
-    shaderModuleCreateInfo.pCode = (uint32_t *) pShaderData;
-
-    if (vkCreateShaderModule(logicalDevices[0], &shaderModuleCreateInfo, nullptr, &graphicsFragmentShaderModule) ==
-        VK_SUCCESS) {
-        std::cout << "Graphics Shader Module created successfully." << std::endl;
-    } else
-        throw VulkanException("Couldn't create fragment graphics shader module.");
-}
+//void VulkanEngine::createGeometryGraphicsShaderModule() {
+//
+//    void *pShaderData;
+//    DWORD shaderSize = loadShaderCode(".\\Resources\\geom.spv", (char **) &pShaderData);
+//
+//    shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+//    shaderModuleCreateInfo.pNext = nullptr;
+//    shaderModuleCreateInfo.codeSize = shaderSize;
+//    shaderModuleCreateInfo.flags = 0;
+//    shaderModuleCreateInfo.pCode = (uint32_t *) pShaderData;
+//
+//    if (vkCreateShaderModule(logicalDevices[0], &shaderModuleCreateInfo, nullptr, &graphicsGeometryShaderModule) ==
+//        VK_SUCCESS) {
+//        std::cout << "Graphics Shader Module created successfully." << std::endl;
+//    } else
+//        throw VulkanException("Couldn't create fragment graphics shader module.");
+//}
+//
+//void VulkanEngine::createFragmentGraphicsShaderModule() {
+//    void *pShaderData;
+//    DWORD shaderSize = loadShaderCode(".\\Resources\\frag.spv", (char **) &pShaderData);
+//
+//    shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+//    shaderModuleCreateInfo.pNext = nullptr;
+//    shaderModuleCreateInfo.codeSize = shaderSize;
+//    shaderModuleCreateInfo.flags = 0;
+//    shaderModuleCreateInfo.pCode = (uint32_t *) pShaderData;
+//
+//    if (vkCreateShaderModule(logicalDevices[0], &shaderModuleCreateInfo, nullptr, &graphicsFragmentShaderModule) ==
+//        VK_SUCCESS) {
+//        std::cout << "Graphics Shader Module created successfully." << std::endl;
+//    } else
+//        throw VulkanException("Couldn't create fragment graphics shader module.");
+//}
 
 void VulkanEngine::createPipelineAndDescriptorSetsLayout() {
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
@@ -2459,25 +2468,29 @@ void VulkanEngine::createPipelineAndDescriptorSetsLayout() {
     descriptorSetLayoutBindings[0].descriptorCount = 1;
     descriptorSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorSetLayoutBindings[0].pImmutableSamplers = nullptr;
-    descriptorSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorSetLayoutBindings[0].stageFlags =
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     descriptorSetLayoutBindings[1].binding = 1;
     descriptorSetLayoutBindings[1].descriptorCount = 1;
     descriptorSetLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorSetLayoutBindings[1].pImmutableSamplers = nullptr;
-    descriptorSetLayoutBindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorSetLayoutBindings[1].stageFlags =
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     descriptorSetLayoutBindings[2].binding = 2;
     descriptorSetLayoutBindings[2].descriptorCount = 1;
     descriptorSetLayoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorSetLayoutBindings[2].pImmutableSamplers = nullptr;
-    descriptorSetLayoutBindings[2].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorSetLayoutBindings[2].stageFlags =
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     descriptorSetLayoutBindings[3].binding = 3;
     descriptorSetLayoutBindings[3].descriptorCount = 1;
     descriptorSetLayoutBindings[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorSetLayoutBindings[3].pImmutableSamplers = nullptr;
-    descriptorSetLayoutBindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    descriptorSetLayoutBindings[3].stageFlags =
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     descriptorSetLayoutCreateInfo.pNext = nullptr;
@@ -2496,7 +2509,8 @@ void VulkanEngine::createPipelineAndDescriptorSetsLayout() {
     VkPushConstantRange pushConstantRange = {};
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(ViewProjectionMatrices);
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstantRange.stageFlags =
+            VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
 
     graphicsPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     graphicsPipelineLayoutCreateInfo.pNext = nullptr;
@@ -2605,7 +2619,7 @@ void VulkanEngine::render(uint32_t drawableImageIndex) {
         viewMatrices[0][2] = 0.0f;
         viewMatrices[0][6] = 0.0f;
         viewMatrices[0][10] = 1.0f;
-        viewMatrices[0][14] = -1.85f;    // z translate
+        viewMatrices[0][14] = viewZTranslation;    // z translate
         viewMatrices[0][3] = 0.0f;
         viewMatrices[0][7] = 0.0f;
         viewMatrices[0][11] = 0.0f;
@@ -2637,7 +2651,80 @@ void VulkanEngine::render(uint32_t drawableImageIndex) {
                                          frameBufferAspectRatio, 0.1f, 500.0f); // calculate perspective matrix
 
         vkCmdPushConstants(renderCommandBuffer, graphicsPipelineLayout,
-                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ViewProjectionMatrices),
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT, 0,
+                           sizeof(ViewProjectionMatrices),
+                           &viewProjection);
+
+
+        vkCmdBindDescriptorSets(renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 0, 1,
+                                meshDescriptorSets + meshIndex, 0, nullptr);
+
+
+        VkDeviceSize offset = 0;
+
+        vkCmdBindVertexBuffers(renderCommandBuffer, 0, 1, vertexBuffersDevice + meshIndex, &offset);
+
+        vkCmdBindIndexBuffer(renderCommandBuffer, indexBuffersDevice[meshIndex], 0, VK_INDEX_TYPE_UINT32);
+
+
+        vkCmdDrawIndexed(renderCommandBuffer, sortedIndices[meshIndex].size(), 1, 0, 0, 0);
+    }
+
+
+    vkCmdBindPipeline(renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsDebugPipeline);
+
+    for (uint16_t meshIndex = 0; meshIndex < cachedScene->mNumMeshes; meshIndex++) {
+        float xRotation = (3.1415926536f / 180.0f) * 90.0f;
+        float yRotation = (3.1415926536 / 180) * elapsedTime / 10;
+
+        float viewMatrices[2][16];
+
+
+        viewMatrices[0][0] = 1.0f;
+        viewMatrices[0][4] = 0.0f;
+        viewMatrices[0][8] = 0.0f;
+        viewMatrices[0][12] = 0.00f;    // x translate
+        viewMatrices[0][1] = 0.0f;
+        viewMatrices[0][5] = 1.0f;
+        viewMatrices[0][9] = 0.0f;
+        viewMatrices[0][13] = 0.0f;        // y translate
+        viewMatrices[0][2] = 0.0f;
+        viewMatrices[0][6] = 0.0f;
+        viewMatrices[0][10] = 1.0f;
+        viewMatrices[0][14] = viewZTranslation;    // z translate
+        viewMatrices[0][3] = 0.0f;
+        viewMatrices[0][7] = 0.0f;
+        viewMatrices[0][11] = 0.0f;
+        viewMatrices[0][15] = 1.0f;
+
+        viewMatrices[1][0] = cos(yRotation);
+        viewMatrices[1][4] = 0.0f;
+        viewMatrices[1][8] = sin(yRotation);
+        viewMatrices[1][12] = 0.0f;
+        viewMatrices[1][1] = 0.0f;
+        viewMatrices[1][5] = 1.0f;
+        viewMatrices[1][9] = 0.0f;
+        viewMatrices[1][13] = 0.0f;
+        viewMatrices[1][2] = -sin(yRotation);
+        viewMatrices[1][6] = 0.0f;
+        viewMatrices[1][10] = cos(yRotation);
+        viewMatrices[1][14] = 0.0f;
+        viewMatrices[1][3] = 0.0f;
+        viewMatrices[1][7] = 0.0f;
+        viewMatrices[1][11] = 0.0f;
+        viewMatrices[1][15] = 1.0f;
+
+        multiplyMatrix<float>(viewProjection.viewMatrix, viewMatrices[0], viewMatrices[1]);
+
+        float frameBufferAspectRatio =
+                ((float) swapchainCreateInfo.imageExtent.width) / ((float) swapchainCreateInfo.imageExtent.height);
+
+        calculateProjectionMatrix<float>((float *) viewProjection.projectionMatrix, (3.1415956536f / 180.0f) * 60.0f,
+                                         frameBufferAspectRatio, 0.1f, 500.0f); // calculate perspective matrix
+
+        vkCmdPushConstants(renderCommandBuffer, graphicsPipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT, 0,
+                           sizeof(ViewProjectionMatrices),
                            &viewProjection);
 
 
@@ -3177,4 +3264,176 @@ void VulkanEngine::destroyStagingMeans() {
 
     vkFreeMemory(logicalDevices[0], uniBuffersMemory, nullptr);
     vkFreeMemory(logicalDevices[0], uniTexturesMemory, nullptr);
+}
+
+void VulkanEngine::createGraphicsNormalViewerPipeline() {
+
+    VkPipelineShaderStageCreateInfo stageCreateInfos[3];
+
+    stageCreateInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageCreateInfos[0].pNext = nullptr;
+    stageCreateInfos[0].flags = 0;
+    stageCreateInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stageCreateInfos[0].module = graphicsNormalViewerVertexShaderModule;
+    stageCreateInfos[0].pName = u8"main";
+    stageCreateInfos[0].pSpecializationInfo = nullptr;
+
+    stageCreateInfos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageCreateInfos[1].pNext = nullptr;
+    stageCreateInfos[1].flags = 0;
+    stageCreateInfos[1].stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+    stageCreateInfos[1].module = graphicsNormalViewerGeometryShaderModule;
+    stageCreateInfos[1].pName = u8"main";
+    stageCreateInfos[1].pSpecializationInfo = nullptr;
+
+    stageCreateInfos[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageCreateInfos[2].pNext = nullptr;
+    stageCreateInfos[2].flags = 0;
+    stageCreateInfos[2].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stageCreateInfos[2].module = graphicsNormalViewerFragmentShaderModule;
+    stageCreateInfos[2].pName = u8"main";
+    stageCreateInfos[2].pSpecializationInfo = nullptr;
+
+    vertexBindingDescription.binding = 0;
+    vertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    vertexBindingDescription.stride = sizeof(attribute);
+
+    VkVertexInputAttributeDescription vertexAttributeDescriptions[5];
+
+    vertexAttributeDescriptions[0].binding = 0;
+    vertexAttributeDescriptions[0].location = 0;
+    vertexAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributeDescriptions[0].offset = offsetof(attribute, position);
+
+    vertexAttributeDescriptions[1].binding = 0;
+    vertexAttributeDescriptions[1].location = 1;
+    vertexAttributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributeDescriptions[1].offset = offsetof(attribute, normal);
+
+    vertexAttributeDescriptions[2].binding = 0;
+    vertexAttributeDescriptions[2].location = 2;
+    vertexAttributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    vertexAttributeDescriptions[2].offset = offsetof(attribute, uv);
+
+    vertexAttributeDescriptions[3].binding = 0;
+    vertexAttributeDescriptions[3].location = 3;
+    vertexAttributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributeDescriptions[3].offset = offsetof(attribute, tangent);
+
+    vertexAttributeDescriptions[4].binding = 0;
+    vertexAttributeDescriptions[4].location = 4;
+    vertexAttributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributeDescriptions[4].offset = offsetof(attribute, bitangent);
+
+    vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputStateCreateInfo.pNext = nullptr;
+    vertexInputStateCreateInfo.flags = 0;
+    vertexInputStateCreateInfo.vertexBindingDescriptionCount = 1;
+    vertexInputStateCreateInfo.pVertexBindingDescriptions = &vertexBindingDescription;
+    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = 5;
+    vertexInputStateCreateInfo.pVertexAttributeDescriptions = vertexAttributeDescriptions;
+
+    inputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssemblyStateCreateInfo.pNext = nullptr;
+    inputAssemblyStateCreateInfo.flags = 0;
+    inputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
+
+    viewport.width = swapchainCreateInfo.imageExtent.width;
+    viewport.height = swapchainCreateInfo.imageExtent.height;
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = viewport.width;
+    scissor.extent.height = viewport.height;
+
+    viewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportStateCreateInfo.pNext = nullptr;
+    viewportStateCreateInfo.flags = 0;
+    viewportStateCreateInfo.viewportCount = 1;
+    viewportStateCreateInfo.pViewports = &viewport;
+    viewportStateCreateInfo.scissorCount = 1;
+    viewportStateCreateInfo.pScissors = &scissor;
+
+    rasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizationStateCreateInfo.pNext = nullptr;
+    rasterizationStateCreateInfo.flags = 0;
+    rasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
+    rasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
+    rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizationStateCreateInfo.cullMode = VK_CULL_MODE_NONE; // no back-face/front-face culling!
+    rasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizationStateCreateInfo.depthBiasEnable = VK_FALSE;
+    rasterizationStateCreateInfo.depthBiasConstantFactor = 0.0f;
+    rasterizationStateCreateInfo.depthBiasSlopeFactor = 0.0f;
+    rasterizationStateCreateInfo.depthBiasClamp = 0.0f;
+    rasterizationStateCreateInfo.lineWidth = 1.0f;
+
+
+    multisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampleStateCreateInfo.pNext = nullptr;
+    multisampleStateCreateInfo.flags = 0;
+    multisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampleStateCreateInfo.sampleShadingEnable = VK_FALSE;
+    multisampleStateCreateInfo.pSampleMask = nullptr;
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachmentState = {};
+    colorBlendAttachmentState.blendEnable = VK_FALSE;
+    colorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_MAX;
+    colorBlendAttachmentState.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlendStateCreateInfo.pNext = nullptr;
+    colorBlendStateCreateInfo.flags = 0;
+    colorBlendStateCreateInfo.logicOpEnable = VK_FALSE;
+    colorBlendStateCreateInfo.attachmentCount = 1;
+    colorBlendStateCreateInfo.pAttachments = &colorBlendAttachmentState;
+
+    VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = {};
+    depthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencilStateCreateInfo.pNext = nullptr;
+    depthStencilStateCreateInfo.flags = 0;
+    depthStencilStateCreateInfo.depthTestEnable = VK_TRUE;
+    depthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    depthStencilStateCreateInfo.depthWriteEnable = VK_TRUE;
+    depthStencilStateCreateInfo.stencilTestEnable = VK_FALSE;
+
+    graphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    graphicsPipelineCreateInfo.pNext = nullptr;
+    graphicsPipelineCreateInfo.flags = 0;
+    graphicsPipelineCreateInfo.stageCount = 3;
+    graphicsPipelineCreateInfo.pStages = stageCreateInfos;
+    graphicsPipelineCreateInfo.pVertexInputState = &vertexInputStateCreateInfo;
+    graphicsPipelineCreateInfo.pInputAssemblyState = &inputAssemblyStateCreateInfo;
+    graphicsPipelineCreateInfo.pTessellationState = nullptr;
+    graphicsPipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
+    graphicsPipelineCreateInfo.pRasterizationState = &rasterizationStateCreateInfo;
+    graphicsPipelineCreateInfo.pMultisampleState = &multisampleStateCreateInfo;
+    graphicsPipelineCreateInfo.pDepthStencilState = &depthStencilStateCreateInfo;
+    graphicsPipelineCreateInfo.pColorBlendState = &colorBlendStateCreateInfo;
+    graphicsPipelineCreateInfo.pDynamicState = nullptr;
+    graphicsPipelineCreateInfo.layout = graphicsPipelineLayout;
+    graphicsPipelineCreateInfo.renderPass = renderPass;
+    graphicsPipelineCreateInfo.subpass = 0;
+    graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+    graphicsPipelineCreateInfo.basePipelineIndex = -1;
+
+    VkResult result = vkCreateGraphicsPipelines(logicalDevices[0], VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
+                                                nullptr, &graphicsDebugPipeline);
+
+    if (result == VK_SUCCESS)
+        std::cout << "Graphics Pipeline created successfully." << std::endl;
+    else
+        throw VulkanException("Couldn't create graphics pipeline.");
+
 }

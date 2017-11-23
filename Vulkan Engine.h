@@ -170,9 +170,9 @@ private:
     VkRenderPass renderPass = {};
     VkFramebuffer *framebuffers;
     VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = {};
-    VkShaderModule graphicsVertexShaderModule = {};
-    VkShaderModule graphicsGeometryShaderModule = {};
-    VkShaderModule graphicsFragmentShaderModule = {};
+    VkShaderModule graphicsVertexShaderModule;
+    VkShaderModule graphicsGeometryShaderModule;
+    VkShaderModule graphicsFragmentShaderModule;
     VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo = {};
     VkVertexInputBindingDescription vertexBindingDescription = {};
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo = {};
@@ -276,6 +276,7 @@ private:
 
     void present(uint32_t swapchainPresentImageIndex);
 
+
     void createQueueDoneFence();
 
     void createRenderpass();
@@ -284,11 +285,11 @@ private:
 
     void createFramebuffers();
 
-    void createVertexGraphicsShaderModule();
+    void createGraphicsShaderModule(const char *shaderFileName, VkShaderModule *shaderModule);
 
-    void createFragmentGraphicsShaderModule();
-
-    void createGeometryGraphicsShaderModule();
+//    void createFragmentGraphicsShaderModule();
+//
+//    void createGeometryGraphicsShaderModule();
 
     void createGraphicsPipeline();
 
@@ -377,6 +378,14 @@ private:
 
         return;
     }
+
+    void createGraphicsNormalViewerPipeline();
+
+    VkShaderModule graphicsNormalViewerVertexShaderModule;
+    VkShaderModule graphicsNormalViewerGeometryShaderModule;
+    VkShaderModule graphicsNormalViewerFragmentShaderModule;
+    VkPipeline graphicsDebugPipeline;
+    float viewZTranslation = -1.8f;
 };
 
 
