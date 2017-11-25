@@ -20,7 +20,7 @@ VulkanEngine::VulkanEngine(HINSTANCE hInstance, HWND windowHandle, VulkanEngine 
     init();
 }
 
-VulkanEngine::~VulkanEngine() {
+VulkanEngine::~VulkanEngine() noexcept(false) {
     terminate();
 }
 
@@ -80,7 +80,7 @@ void VulkanEngine::init() {
     createSyncMeans();
     getDeviceExtensions();
     getDeviceLayers();
-    loadMesh();
+    loadMesh("nyra.obj");
     createAllTextures();
     createAllBuffers();
     getQueues();
@@ -92,13 +92,16 @@ void VulkanEngine::init() {
     createSwapchainImageViews(); // create swapchain imageviews (framebuffer color attachment)
     createRenderpass(); // create renderpass
     createFramebuffers(); // create framebuffer
-    createGraphicsShaderModule("vert.spv", &graphicsVertexShaderModule); // create vertex shader
-    createGraphicsShaderModule("frag.spv", &graphicsFragmentShaderModule); // create fragment shader
-    createGraphicsShaderModule("debug_vert.spv", &graphicsNormalViewerVertexShaderModule); // create debug vertex shader
-    createGraphicsShaderModule("debug_geom.spv",
-                               &graphicsNormalViewerGeometryShaderModule); // create debug geometry shader
-    createGraphicsShaderModule("debug_frag.spv",
-                               &graphicsNormalViewerFragmentShaderModule); // create debug fragment shader
+    createGraphicsShaderModule("vert.glsl", &graphicsVertexShaderModule,
+                               shaderc_glsl_default_vertex_shader); // create vertex shader
+    createGraphicsShaderModule("frag.glsl", &graphicsFragmentShaderModule,
+                               shaderc_glsl_default_fragment_shader); // create fragment shader
+    createGraphicsShaderModule("debug_vert.glsl", &graphicsNormalViewerVertexShaderModule,
+                               shaderc_glsl_default_vertex_shader); // create debug vertex shader
+    createGraphicsShaderModule("debug_geom.glsl", &graphicsNormalViewerGeometryShaderModule,
+                               shaderc_glsl_default_geometry_shader); // create debug geometry shader
+    createGraphicsShaderModule("debug_frag.glsl", &graphicsNormalViewerFragmentShaderModule,
+                               shaderc_glsl_default_fragment_shader); // create debug fragment shader
     createPipelineAndDescriptorSetsLayout(); // create pipeline layout
     createGraphicsPipeline(); //create pipeline
     createGraphicsNormalViewerPipeline();
@@ -112,6 +115,10 @@ void VulkanEngine::init() {
     setupTimer();
 
     inited = true;
+}
+
+bool VulkanEngine::isInited() {
+    return inited;
 }
 
 void VulkanEngine::setupTimer() {
@@ -165,7 +172,7 @@ void VulkanEngine::createInstance() {
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pNext = nullptr;
 
-    std::vector<const char *> layerNames = {"VK_LAYER_LUNARG_standard_validation", "VK_LAYER_LUNARG_monitor"};
+    std::vector<const char *> layerNames = {"VK_LAYER_LUNARG_monitor", "VK_LAYER_LUNARG_standard_validation"};
     std::vector<const char *> extensionNames = {"VK_KHR_surface", "VK_KHR_win32_surface"};
 
     instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -174,7 +181,7 @@ void VulkanEngine::createInstance() {
 #ifndef NDEBUG
     instanceCreateInfo.enabledLayerCount = 2;
 #else
-    instanceCreateInfo.enabledLayerCount = 0;
+    instanceCreateInfo.enabledLayerCount = 1;
 #endif
     instanceCreateInfo.ppEnabledExtensionNames = extensionNames.data();
     instanceCreateInfo.ppEnabledLayerNames = layerNames.data();
@@ -387,7 +394,7 @@ void VulkanEngine::createAllTextures() {
 
         ilBindImage(imgName);
 
-        std::string colorFileName(texturesDirectoryPath);
+        std::string colorFileName(resourcesPath);
 
         colorFileName.append("t");
         colorFileName.append(std::to_string(fileNumber));
@@ -422,7 +429,7 @@ void VulkanEngine::createAllTextures() {
 
         ilBindImage(imgName);
 
-        std::string normalFileName(texturesDirectoryPath);
+        std::string normalFileName(resourcesPath);
 
         normalFileName.append("t");
         normalFileName.append(std::to_string(fileNumber));
@@ -457,7 +464,7 @@ void VulkanEngine::createAllTextures() {
 
         ilBindImage(imgName);
 
-        std::string specFileName(texturesDirectoryPath);
+        std::string specFileName(resourcesPath);
 
         specFileName.append("t");
         specFileName.append(std::to_string(fileNumber));
@@ -742,8 +749,6 @@ void VulkanEngine::terminate() {
 
     vkDeviceWaitIdle(logicalDevices[0]);
 
-    destroySyncMeans();
-
     vkDestroySampler(logicalDevices[0], textureSampler, nullptr);
 
     std::cout << "Texture Sampler destroyed.\n";
@@ -840,6 +845,7 @@ void VulkanEngine::terminate() {
     vkDestroySwapchainKHR(logicalDevices[0], swapchain, nullptr);
     std::cout << "Swapchain destroyed successfully." << std::endl;
 
+    destroySyncMeans();
 
     vkDestroyDevice(logicalDevices[0], nullptr);
     std::cout << "Logical Device destroyed.\n";
@@ -863,19 +869,19 @@ void VulkanEngine::createLogicalDevice() {
     for (int i = 0; i < numQueueFamilies; i++) {
         std::string queueFlagsString = "";
 
-        if (queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT != 0) {
+        if ((queueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
             queueFlagsString += "GRAPHICS ";
         }
 
-        if (queueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT != 0) {
+        if ((queueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0) {
             queueFlagsString += "COMPUTE ";
         }
 
-        if (queueFamilyProperties[i].queueFlags & VK_QUEUE_TRANSFER_BIT != 0) {
+        if ((queueFamilyProperties[i].queueFlags & VK_QUEUE_TRANSFER_BIT) != 0) {
             queueFlagsString += "TRANSFER ";
         }
 
-        if (queueFamilyProperties[i].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT != 0) {
+        if ((queueFamilyProperties[i].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT) != 0) {
             queueFlagsString += "SPARSE-BINDING ";
         }
 
@@ -2388,41 +2394,51 @@ void VulkanEngine::createGraphicsPipeline() {
         throw VulkanException("Couldn't create graphics pipeline.");
 }
 
-void VulkanEngine::createGraphicsShaderModule(const char *shaderFileName, VkShaderModule *shaderModule) {
-    void *pShaderData;
+//typedef struct shaderc_compiler* shaderc_compiler_t;
+//typedef struct shaderc_compilation_result* shaderc_compilation_result_t;
+//typedef shaderc_compiler_t (*_shaderc_compiler_initialize_t)();
+//typedef shaderc_compile_into_spv
 
-    std::string filePath = ".\\Resources\\";
-    filePath.append(shaderFileName);
+void VulkanEngine::createGraphicsShaderModule(const char *shaderFileName, VkShaderModule *shaderModule,
+                                              shaderc_shader_kind shaderType) {
 
-    DWORD shaderSize = loadShaderCode(filePath.c_str(), (char **) &pShaderData);
+
+    std::string shaderPath(resourcesPath);
+    shaderPath.append(shaderFileName);
+
+    std::string shaderCode = loadShaderCode(shaderPath.c_str());
+
+    std::vector<uint32_t> shaderBinary = compileGLSLShader(shaderCode.c_str(), shaderType);
 
     shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shaderModuleCreateInfo.pNext = nullptr;
-    shaderModuleCreateInfo.codeSize = shaderSize;
+    shaderModuleCreateInfo.codeSize = shaderBinary.size() * sizeof(uint32_t);
     shaderModuleCreateInfo.flags = 0;
-    shaderModuleCreateInfo.pCode = (uint32_t *) pShaderData;
+    shaderModuleCreateInfo.pCode = shaderBinary.data();
 
     if (vkCreateShaderModule(logicalDevices[0], &shaderModuleCreateInfo, nullptr, shaderModule) ==
         VK_SUCCESS) {
         std::cout << "Graphics Shader Module created successfully." << std::endl;
     } else
         throw VulkanException("Couldn't create vertex graphics shader module.");
+
 }
 
-unsigned long VulkanEngine::loadShaderCode(const char *fileName, char **fileData) {
-    std::ifstream inTemp(fileName, std::ifstream::ate | std::ifstream::binary);
-    unsigned long fileSize = inTemp.tellg();
-    inTemp.close();
+std::string VulkanEngine::loadShaderCode(const char *fileName) {
+    std::string line;
+    std::string code = "";
+    std::ifstream infile;
+    infile.open(fileName);
+    while (!infile.eof()) // To get you all the lines.
+    {
+        getline(infile, line); // Saves the line in STRING.
 
-    std::ifstream inFile(fileName, std::ios::in | std::ios::binary);
+        code.append(line);
+        code.append("\n");
+    }
+    infile.close();
 
-    *fileData = new char[fileSize];
-
-    inFile.read(*fileData, fileSize);
-
-    inFile.close();
-
-    return fileSize;
+    return code;
 }
 
 //void VulkanEngine::createGeometryGraphicsShaderModule() {
@@ -2946,9 +2962,9 @@ void VulkanEngine::createDescriptorSets() {
     }
 }
 
-typedef ASSIMP_API const C_STRUCT aiScene *FNP_aiImportFile(const char *, unsigned int);
+typedef const C_STRUCT aiScene *FNP_aiImportFile(const char *, unsigned int);
 
-void VulkanEngine::loadMesh() {
+void VulkanEngine::loadMesh(const char *fileName) {
     std::string err;
 
     HMODULE assimpModule = LoadLibrary("assimp-vc140-mt.dll");
@@ -2960,7 +2976,11 @@ void VulkanEngine::loadMesh() {
 
     cachedScene = (aiScene *) malloc(sizeof(aiScene));
 
-    const aiScene *scene = _aiImportFile(".\\Resources\\nyra.obj",
+    std::string meshPath(resourcesPath);
+
+    meshPath.append(fileName);
+
+    const aiScene *scene = _aiImportFile(meshPath.c_str(),
                                          aiProcess_ConvertToLeftHanded | aiProcess_Triangulate | aiProcess_GenNormals |
                                          aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace);
     memcpy(cachedScene, scene, sizeof(aiScene));

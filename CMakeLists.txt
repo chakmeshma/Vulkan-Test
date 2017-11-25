@@ -1,11 +1,8 @@
 cmake_minimum_required(VERSION 3.8.2)
 project(Vulkan_Test)
 
-IF (CMAKE_COMPILER_IS_GNUCC)
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions")
-ELSEIF (MSVC71 OR MSVC80)
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /EHc-")
-ENDIF (CMAKE_COMPILER_IS_GNUCC)
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
 
 # Creates C resources file from files in given directory
 function(create_resources dir coutput houtput)
@@ -38,22 +35,24 @@ function(create_resources dir coutput houtput)
     file(APPEND ${houtput} "#endif\n")
 endfunction()
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-
 include_directories(../../../../VulkanSDK/1.0.65.0/Include)
-include_directories(../../../../Users/chakm/Desktop/DevIL/DevIL/include)
+include_directories(../../../../dev/msys64/home/chakmeshma/DevIL/DevIL/include)
 include_directories(../../../../Users/chakm/Desktop/assimp/include)
 
 set(ASSIMP_LIB ${PROJECT_SOURCE_DIR}/../../Desktop/assimp/build/code/Release)
 
 #create_resources("Shader Resources" resources.c resources.h)
 
-set(SOURCE_FILES main.cpp "Vulkan Engine.cpp" "Vulkan Engine Exception.cpp")
+set(SOURCE_FILES main.cpp "Vulkan Engine.cpp" "Vulkan Engine Exception.cpp" shaderc_online_compiler.cpp shaderc_online_compiler.h)
+
+add_library(shaderc SHARED IMPORTED)
+
+set_property(TARGET shaderc PROPERTY IMPORTED_LOCATION "${PROJECT_SOURCE_DIR}/../../Desktop/shaderc build dynamic/libshaderc/Release/shaderc_shared.dll")
+set_property(TARGET shaderc PROPERTY IMPORTED_IMPLIB "${PROJECT_SOURCE_DIR}/../../Desktop/shaderc build dynamic/libshaderc/Release/shaderc_shared.lib")
 
 add_executable(Vulkan_Test ${SOURCE_FILES})
 
-target_link_libraries(Vulkan_Test ${PROJECT_SOURCE_DIR}/../../../../VulkanSDK/1.0.65.0/Lib/vulkan-1.lib ${PROJECT_SOURCE_DIR}/../../Desktop/DevIL/DevIL/build/lib/x64/Release/DevIL.lib)
+target_link_libraries(Vulkan_Test ${PROJECT_SOURCE_DIR}/../../../../VulkanSDK/1.0.65.0/Lib/vulkan-1.lib ${PROJECT_SOURCE_DIR}/../../../../dev/msys64/home/chakmeshma/DevIL/build/lib/x64/Release/DevIL.lib shaderc)
 #        ${PROJECT_SOURCE_DIR}/linkables/0_png.o
 #        ${PROJECT_SOURCE_DIR}/linkables/0n_png.o
 #        ${PROJECT_SOURCE_DIR}/linkables/0s_png.o

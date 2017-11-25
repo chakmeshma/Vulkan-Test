@@ -21,16 +21,18 @@
 
 #include <vulkan\vulkan.h>
 #include <stdlib.h>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
-#include "IL\il.h"
+#include <math.h>
+#include <IL\il.h>
 #include <assert.h>
-#include "math.h"
-#include "Vulkan Engine Exception.h"
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <assimp/cimport.h>
+#include "Vulkan Engine Exception.h"
+#include "shaderc_online_compiler.h"
 
 
 typedef struct {
@@ -63,7 +65,9 @@ class VulkanEngine {
 public:
     VulkanEngine(HINSTANCE hInstance, HWND windowHandle, VulkanEngine **ppUnstableInstance);
 
-    ~VulkanEngine();
+    ~VulkanEngine() noexcept(false);
+
+    bool isInited();
 
     void getInstanceExtensions();
 
@@ -83,8 +87,10 @@ public:
         float viewMatrix[16];
         float projectionMatrix[16];
     };
+
+    float viewZTranslation = -14.8f;
 private:
-    const char *texturesDirectoryPath = ".\\Resources\\";
+    std::string resourcesPath = "..\\Resources\\";
     //const char* meshesDirectoryPath = "C:\\Users\\chakm\\Desktop\\Bee Shader Resources\\Objects\\";
 
     uint32_t instanceExtensionsCount = 0;
@@ -202,6 +208,7 @@ private:
     VkImageView normalTextureViews[MAX_NORMAL_TEXTURE_ARRAY_SIZE];
     VkImage specTextureImagesDevice[MAX_SPECULAR_TEXTURE_ARRAY_SIZE];
     VkImage specTextureImages[MAX_SPECULAR_TEXTURE_ARRAY_SIZE];
+
     VkImageView specTextureViews[MAX_SPECULAR_TEXTURE_ARRAY_SIZE];
     VkDeviceMemory depthImageMemory;
     VkDeviceMemory uniTexturesMemory;
@@ -230,11 +237,13 @@ private:
     aiScene *cachedScene = NULL;
     VkDescriptorSet meshDescriptorSets[MAX_MESHES];
     VkSampler textureSampler;
-    bool inited = false;
     VkFence queueDoneFence;
     LARGE_INTEGER frequency;        // ticks per second
     LARGE_INTEGER t1, t2;           // ticks
     double elapsedTime;
+    bool inited = false;
+
+
 
     void init();
 
@@ -285,7 +294,8 @@ private:
 
     void createFramebuffers();
 
-    void createGraphicsShaderModule(const char *shaderFileName, VkShaderModule *shaderModule);
+    void createGraphicsShaderModule(const char *shaderFileName, VkShaderModule *shaderModule,
+                                    shaderc_shader_kind shaderType);
 
 //    void createFragmentGraphicsShaderModule();
 //
@@ -309,7 +319,7 @@ private:
 
     void createDescriptorSets();
 
-    void loadMesh();
+    void loadMesh(const char *fileName);
 
     /*void writeBuffers();*/
     VkMemoryRequirements createBuffer(VkBuffer *buffer, VkDeviceSize size, VkBufferUsageFlags usageFlags);
@@ -334,7 +344,7 @@ private:
 
     void destroyStagingMeans();
 
-    unsigned long loadShaderCode(const char *fileName, char **fileData);
+    std::string loadShaderCode(const char *fileName);
 
     template<class T>
     static void multiplyMatrix(T *result, T *left, T *right) {
@@ -385,7 +395,6 @@ private:
     VkShaderModule graphicsNormalViewerGeometryShaderModule;
     VkShaderModule graphicsNormalViewerFragmentShaderModule;
     VkPipeline graphicsDebugPipeline;
-    float viewZTranslation = -1.8f;
 };
 
 

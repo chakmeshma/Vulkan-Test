@@ -5,12 +5,12 @@
 #include "Vulkan Engine.h"
 //#define FULLSCREEN
 
-VulkanEngine *engine = NULL;
-const char g_szClassName[] = "VulkanEngine Test Window Class";
-HWND windowHandle = NULL;
-bool vulkanInited = false;
-VulkanEngine **pUnstableInstance = new VulkanEngine *;
-bool quitMessageReceived = false;
+static bool vulkanInited = false;
+static VulkanEngine *engine = NULL;
+static const char g_szClassName[] = "VulkanEngine Test Window Class";
+static HWND windowHandle = NULL;
+static VulkanEngine **pUnstableInstance = new VulkanEngine *;
+static bool quitMessagePosted = false;
 
 void deleteEngineOrUnstableEngine() {
     if (*pUnstableInstance != NULL)
@@ -26,7 +26,7 @@ BOOL WINAPI closeHandler(DWORD dwCtrlType) {
 
             deleteEngineOrUnstableEngine();
 
-            quitMessageReceived = true;
+            quitMessagePosted = true;
         }
     }
 
@@ -47,20 +47,20 @@ bool initVulkanReal(HINSTANCE hInstance, HWND windowHandle) {
 
         delete *pUnstableInstance;
 
-        exit(EXIT_FAILURE);
+        return false;
     }
-}
-
-bool initVulkan(HINSTANCE hInstance, HWND windowHandle) {
-    initVulkanReal(hInstance, windowHandle);
-
-    vulkanInited = true;
 
     return true;
 }
 
+bool initVulkan(HINSTANCE hInstance, HWND windowHandle) {
+    return (vulkanInited = initVulkanReal(hInstance, windowHandle));
+}
+
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    short wheelDelta = 0;
+
     switch (msg) {
         case WM_SHOWWINDOW:
 #ifndef NDEBUG
@@ -84,9 +84,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
             break;
         case WM_DESTROY:
-            engine->terminating = true;
             PostQuitMessage(0);
-            quitMessageReceived = true;
+            quitMessagePosted = true;
+            break;
+        case WM_MOUSEWHEEL:
+            wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+            engine->viewZTranslation += ((float) wheelDelta / 120.0f);
             break;
         default:
             return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -107,6 +110,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 //    fwrite(data, 1, realSize, file); //64 Bit only
 //    fclose(file);
 //}
+
+void renderLoop() {
+    while (!engine->terminating) {
+        if (engine->isInited())
+            engine->draw();
+    }
+}
 
 void initWindow(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                 LPSTR lpCmdLine, int nCmdShow) {
@@ -186,30 +196,33 @@ void initWindow(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         throw std::exception();
 
 
-    while (!quitMessageReceived) {
+    std::thread renderThread(renderLoop);
+
+
+    while (!quitMessagePosted) {
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
             if (msg.message == WM_QUIT) {
-                quitMessageReceived = true;
+                quitMessagePosted = true;
                 engine->terminating = true;
                 break;
             }
         }
-        if (!engine->terminating)
-            engine->draw();
     }
 
-    return;
+    return renderThread.join();
 }
+
 
 
 int main() {
     SetConsoleCtrlHandler(closeHandler, TRUE);
 
     //Consequently, The first WM_SHOWWINDOW message starts the VulkanEngine initialization.
-//    initWindow(GetModuleHandle(NULL), NULL, "", 1);
+    //initWindow(GetModuleHandle(NULL), NULL, "", 1);
     initWindow(GetModuleHandle(NULL), NULL, (LPSTR) "", 1);
+
 
     return EXIT_SUCCESS;
 }
