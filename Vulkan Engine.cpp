@@ -181,7 +181,7 @@ void VulkanEngine::createInstance() {
 #ifndef NDEBUG
     instanceCreateInfo.enabledLayerCount = 2;
 #else
-    instanceCreateInfo.enabledLayerCount = 1;
+    instanceCreateInfo.enabledLayerCount = 0;
 #endif
     instanceCreateInfo.ppEnabledExtensionNames = extensionNames.data();
     instanceCreateInfo.ppEnabledLayerNames = layerNames.data();

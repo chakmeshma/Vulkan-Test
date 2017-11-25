@@ -19,7 +19,7 @@ layout (location = 3) in vec3 iFragTan[];
 
 layout (location = 4) in vec3 iFragBitan[];
 
-const float normalLength = 0.13;
+const float normalLength = 13.13;
 
 in gl_PerVertex {
 	vec4 gl_Position;

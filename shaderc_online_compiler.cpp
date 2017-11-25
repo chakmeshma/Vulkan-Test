@@ -39,7 +39,7 @@ std::string preprocess_shader(const std::string &source_name,
             compiler.PreprocessGlsl(source, kind, source_name.c_str(), options);
 
     if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
-        std::cerr << result.GetErrorMessage();
+        throw VulkanException(result.GetErrorMessage().c_str());
         return "";
     }
 
@@ -63,7 +63,7 @@ std::string compile_file_to_assembly(const std::string &source_name,
             source, kind, source_name.c_str(), options);
 
     if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
-        std::cerr << result.GetErrorMessage();
+        throw VulkanException(result.GetErrorMessage().c_str());
         return "";
     }
 
@@ -87,7 +87,7 @@ std::vector<uint32_t> compile_file(const std::string &source_name,
             compiler.CompileGlslToSpv(source, kind, source_name.c_str(), options);
 
     if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
-        std::cerr << module.GetErrorMessage();
+        throw VulkanException(module.GetErrorMessage().c_str());
         return std::vector<uint32_t>();
     }
 
@@ -97,13 +97,33 @@ std::vector<uint32_t> compile_file(const std::string &source_name,
 std::vector<uint32_t> compileGLSLShader(const char kShaderSource[], shaderc_shader_kind shaderType) {
     std::vector<uint32_t> spirv;
 
+    std::string shaderTypeName = "";
+
+    switch (shaderType) {
+        case shaderc_glsl_default_vertex_shader:
+            shaderTypeName = "Vertex";
+            break;
+        case shaderc_glsl_default_fragment_shader:
+            shaderTypeName = "Fragment";
+            break;
+        case shaderc_glsl_default_compute_shader:
+            shaderTypeName = "Compute";
+            break;
+        case shaderc_glsl_default_geometry_shader:
+            shaderTypeName = "Geometry";
+            break;
+        case shaderc_glsl_default_tess_control_shader:
+            shaderTypeName = "Tesselation Control";
+            break;
+        case shaderc_glsl_default_tess_evaluation_shader:
+            shaderTypeName = "Tesselation Evaluation";
+            break;
+    }
 
     {  // Preprocessing
         auto preprocessed = preprocess_shader(
                 "shader_src", shaderType, kShaderSource);
-        std::cout << "Compiled a vertex shader resulting in preprocessed text:"
-                  << std::endl
-                  << preprocessed << std::endl;
+        std::cout << "Preprocessed a " << shaderTypeName << " Shader successfully." << std::endl;
     }
 
 //    {  // Compiling
@@ -127,12 +147,10 @@ std::vector<uint32_t> compileGLSLShader(const char kShaderSource[], shaderc_shad
         auto assembly =
                 compile_file_to_assembly("shader_src", shaderType,
                                          kShaderSource, /* optimize = */ optimize);
-        std::cout << "Optimized SPIR-V assembly:" << std::endl
-                  << assembly << std::endl;
 
         spirv = compile_file("shader_src", shaderType,
                              kShaderSource, /* optimize = */ optimize);
-        std::cout << "Compiled to an optimized binary module with " << spirv.size()
+        std::cout << "Compiled to " << ((optimize) ? ("an optimized") : ("a")) << " binary module with " << spirv.size()
                   << " words." << std::endl;
     }
 

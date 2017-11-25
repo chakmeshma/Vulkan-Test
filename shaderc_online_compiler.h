@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <shaderc/shaderc.hpp>
+#include "Vulkan Engine Exception.h"
 
 std::vector<uint32_t> compileGLSLShader(const char kShaderSource[], shaderc_shader_kind shaderType);
 
