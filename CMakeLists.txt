@@ -43,7 +43,7 @@ set(ASSIMP_LIB ${PROJECT_SOURCE_DIR}/../../Desktop/assimp/build/code/Release)
 
 #create_resources("Shader Resources" resources.c resources.h)
 
-set(SOURCE_FILES main.cpp "Vulkan Engine.cpp" "Vulkan Engine Exception.cpp" shaderc_online_compiler.cpp shaderc_online_compiler.h)
+set(SOURCE_FILES main.cpp "Vulkan Engine.cpp" "Vulkan Engine Exception.cpp" shaderc_online_compiler.cpp shaderc_online_compiler.h objects.h)
 
 add_library(shaderc SHARED IMPORTED)
 

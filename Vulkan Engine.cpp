@@ -8,6 +8,8 @@
 
 //#pragma comment(linker, "/HEAP:2000000000")
 
+
+
 VulkanEngine **ppUnstableInstance_img = NULL;
 
 VulkanEngine::VulkanEngine(HINSTANCE hInstance, HWND windowHandle, VulkanEngine **ppUnstableInstance) {
@@ -1144,70 +1146,64 @@ void VulkanEngine::createAllBuffers() {
     VKASSERT_SUCCESS(vkMapMemory(logicalDevices[0], uniBuffersMemory, 0, VK_WHOLE_SIZE, 0, &mappedMemory));
 
     for (uint16_t meshIndex = 0; meshIndex < cachedScene->mNumMeshes; meshIndex++) {
-        float xRotation = (3.1415926536f / 180.0f) * 180;
-        float yRotation = (3.1415926536f / 180.0f) * 90;
+        Matrix<float> modelMatrices[3];
+        Matrix<float> temp;
 
-        ModelMatrix modelMatrix;
-        float modelMatrices[3][16];
+        modelMatrices[0].elements[0] = 1.0f;
+        modelMatrices[0].elements[4] = 0.0f;
+        modelMatrices[0].elements[8] = 0.0f;
+        modelMatrices[0].elements[12] = 0.0f;
+        modelMatrices[0].elements[1] = 0.0f;
+        modelMatrices[0].elements[5] = cosf(initialModelXRotation);
+        modelMatrices[0].elements[9] = -sinf(initialModelXRotation);
+        modelMatrices[0].elements[13] = 0.0f;
+        modelMatrices[0].elements[2] = 0.0f;
+        modelMatrices[0].elements[6] = sinf(initialModelXRotation);
+        modelMatrices[0].elements[10] = cosf(initialModelXRotation);
+        modelMatrices[0].elements[14] = 0.0f;
+        modelMatrices[0].elements[3] = 0.0f;
+        modelMatrices[0].elements[7] = 0.0f;
+        modelMatrices[0].elements[11] = 0.0f;
+        modelMatrices[0].elements[15] = 1.0f;
 
-        float scale = 6.6f;
+        modelMatrices[1].elements[0] = cosf(initialModelYRotation);
+        modelMatrices[1].elements[4] = 0.0f;
+        modelMatrices[1].elements[8] = sinf(initialModelYRotation);
+        modelMatrices[1].elements[12] = 0.0f;
+        modelMatrices[1].elements[1] = 0.0f;
+        modelMatrices[1].elements[5] = 1.0f;
+        modelMatrices[1].elements[9] = 0.0f;
+        modelMatrices[1].elements[13] = 0.0f;
+        modelMatrices[1].elements[2] = -sinf(initialModelYRotation);
+        modelMatrices[1].elements[6] = 0.0f;
+        modelMatrices[1].elements[10] = cosf(initialModelYRotation);
+        modelMatrices[1].elements[14] = 0.0f;
+        modelMatrices[1].elements[3] = 0.0f;
+        modelMatrices[1].elements[7] = 0.0f;
+        modelMatrices[1].elements[11] = 0.0f;
+        modelMatrices[1].elements[15] = 1.0f;
 
-        modelMatrices[0][0] = 1.0f;
-        modelMatrices[0][4] = 0.0f;
-        modelMatrices[0][8] = 0.0f;
-        modelMatrices[0][12] = 0.0f;
-        modelMatrices[0][1] = 0.0f;
-        modelMatrices[0][5] = cosf(xRotation);
-        modelMatrices[0][9] = -sinf(xRotation);
-        modelMatrices[0][13] = 0.0f;
-        modelMatrices[0][2] = 0.0f;
-        modelMatrices[0][6] = sinf(xRotation);
-        modelMatrices[0][10] = cosf(xRotation);
-        modelMatrices[0][14] = 0.0f;
-        modelMatrices[0][3] = 0.0f;
-        modelMatrices[0][7] = 0.0f;
-        modelMatrices[0][11] = 0.0f;
-        modelMatrices[0][15] = 1.0f;
+        modelMatrices[2].elements[0] = initialModelScale;
+        modelMatrices[2].elements[4] = 0.0f;
+        modelMatrices[2].elements[8] = 00.0f;
+        modelMatrices[2].elements[12] = 0.0f;
+        modelMatrices[2].elements[1] = 0.0f;
+        modelMatrices[2].elements[5] = initialModelScale;
+        modelMatrices[2].elements[9] = 0.0f;
+        modelMatrices[2].elements[13] = 0.0f;
+        modelMatrices[2].elements[2] = 0.0f;
+        modelMatrices[2].elements[6] = 0.0f;
+        modelMatrices[2].elements[10] = initialModelScale;
+        modelMatrices[2].elements[14] = 0.0f;
+        modelMatrices[2].elements[3] = 0.0f;
+        modelMatrices[2].elements[7] = 0.0f;
+        modelMatrices[2].elements[11] = 0.0f;
+        modelMatrices[2].elements[15] = 1.0f;
 
-        modelMatrices[1][0] = cosf(yRotation);
-        modelMatrices[1][4] = 0.0f;
-        modelMatrices[1][8] = sinf(yRotation);
-        modelMatrices[1][12] = 0.0f;
-        modelMatrices[1][1] = 0.0f;
-        modelMatrices[1][5] = 1.0f;
-        modelMatrices[1][9] = 0.0f;
-        modelMatrices[1][13] = 0.0f;
-        modelMatrices[1][2] = -sinf(yRotation);
-        modelMatrices[1][6] = 0.0f;
-        modelMatrices[1][10] = cosf(yRotation);
-        modelMatrices[1][14] = 0.0f;
-        modelMatrices[1][3] = 0.0f;
-        modelMatrices[1][7] = 0.0f;
-        modelMatrices[1][11] = 0.0f;
-        modelMatrices[1][15] = 1.0f;
 
-        modelMatrices[2][0] = scale;
-        modelMatrices[2][4] = 0.0f;
-        modelMatrices[2][8] = 00.0f;
-        modelMatrices[2][12] = 0.0f;
-        modelMatrices[2][1] = 0.0f;
-        modelMatrices[2][5] = scale;
-        modelMatrices[2][9] = 0.0f;
-        modelMatrices[2][13] = 0.0f;
-        modelMatrices[2][2] = 0.0f;
-        modelMatrices[2][6] = 0.0f;
-        modelMatrices[2][10] = scale;
-        modelMatrices[2][14] = 0.0f;
-        modelMatrices[2][3] = 0.0f;
-        modelMatrices[2][7] = 0.0f;
-        modelMatrices[2][11] = 0.0f;
-        modelMatrices[2][15] = 1.0f;
+        multiplyMatrix<float>(&temp, &modelMatrices[2], &modelMatrices[0]);
 
-        float temp[16];
-
-        multiplyMatrix<float>(temp, modelMatrices[2], modelMatrices[0]);
-
-        multiplyMatrix<float>(modelMatrix.modelMatrix, temp, modelMatrices[1]);
+        multiplyMatrix<float>(&modelMatrix.modelMatrix, &temp, &modelMatrices[1]);
 
         memcpy((byte *) mappedMemory + uniformBuffersBindOffsetsDevice[meshIndex], &modelMatrix,
                totalUniformBufferSize);
@@ -2253,34 +2249,34 @@ void VulkanEngine::createGraphicsPipeline() {
 
     vertexBindingDescription.binding = 0;
     vertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    vertexBindingDescription.stride = sizeof(attribute);
+    vertexBindingDescription.stride = sizeof(Attribute<float>);
 
     VkVertexInputAttributeDescription vertexAttributeDescriptions[5];
 
     vertexAttributeDescriptions[0].binding = 0;
     vertexAttributeDescriptions[0].location = 0;
     vertexAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributeDescriptions[0].offset = offsetof(attribute, position);
+    vertexAttributeDescriptions[0].offset = offsetof(Attribute<float>, position);
 
     vertexAttributeDescriptions[1].binding = 0;
     vertexAttributeDescriptions[1].location = 1;
     vertexAttributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributeDescriptions[1].offset = offsetof(attribute, normal);
+    vertexAttributeDescriptions[1].offset = offsetof(Attribute<float>, normal);
 
     vertexAttributeDescriptions[2].binding = 0;
     vertexAttributeDescriptions[2].location = 2;
     vertexAttributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-    vertexAttributeDescriptions[2].offset = offsetof(attribute, uv);
+    vertexAttributeDescriptions[2].offset = offsetof(Attribute<float>, uv);
 
     vertexAttributeDescriptions[3].binding = 0;
     vertexAttributeDescriptions[3].location = 3;
     vertexAttributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributeDescriptions[3].offset = offsetof(attribute, tangent);
+    vertexAttributeDescriptions[3].offset = offsetof(Attribute<float>, tangent);
 
     vertexAttributeDescriptions[4].binding = 0;
     vertexAttributeDescriptions[4].location = 4;
     vertexAttributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributeDescriptions[4].offset = offsetof(attribute, bitangent);
+    vertexAttributeDescriptions[4].offset = offsetof(Attribute<float>, bitangent);
 
     vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputStateCreateInfo.pNext = nullptr;
@@ -2524,7 +2520,7 @@ void VulkanEngine::createPipelineAndDescriptorSetsLayout() {
 
     VkPushConstantRange pushConstantRange = {};
     pushConstantRange.offset = 0;
-    pushConstantRange.size = sizeof(ViewProjectionMatrices);
+    pushConstantRange.size = sizeof(ViewProjectionMatrices<float>);
     pushConstantRange.stageFlags =
             VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
 
@@ -2615,60 +2611,9 @@ void VulkanEngine::render(uint32_t drawableImageIndex) {
     vkCmdBindPipeline(renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
     for (uint16_t meshIndex = 0; meshIndex < cachedScene->mNumMeshes; meshIndex++) {
-        QueryPerformanceCounter(&t2);
-        elapsedTime = (t2.QuadPart - t1.QuadPart) * 1000.0 / frequency.QuadPart;
-
-        float xRotation = (3.1415926536f / 180.0f) * 90.0f;
-        float yRotation = (3.1415926536 / 180) * elapsedTime / 10;
-
-        float viewMatrices[2][16];
-
-
-        viewMatrices[0][0] = 1.0f;
-        viewMatrices[0][4] = 0.0f;
-        viewMatrices[0][8] = 0.0f;
-        viewMatrices[0][12] = 0.00f;    // x translate
-        viewMatrices[0][1] = 0.0f;
-        viewMatrices[0][5] = 1.0f;
-        viewMatrices[0][9] = 0.0f;
-        viewMatrices[0][13] = 0.0f;        // y translate
-        viewMatrices[0][2] = 0.0f;
-        viewMatrices[0][6] = 0.0f;
-        viewMatrices[0][10] = 1.0f;
-        viewMatrices[0][14] = viewZTranslation;    // z translate
-        viewMatrices[0][3] = 0.0f;
-        viewMatrices[0][7] = 0.0f;
-        viewMatrices[0][11] = 0.0f;
-        viewMatrices[0][15] = 1.0f;
-
-        viewMatrices[1][0] = cos(yRotation);
-        viewMatrices[1][4] = 0.0f;
-        viewMatrices[1][8] = sin(yRotation);
-        viewMatrices[1][12] = 0.0f;
-        viewMatrices[1][1] = 0.0f;
-        viewMatrices[1][5] = 1.0f;
-        viewMatrices[1][9] = 0.0f;
-        viewMatrices[1][13] = 0.0f;
-        viewMatrices[1][2] = -sin(yRotation);
-        viewMatrices[1][6] = 0.0f;
-        viewMatrices[1][10] = cos(yRotation);
-        viewMatrices[1][14] = 0.0f;
-        viewMatrices[1][3] = 0.0f;
-        viewMatrices[1][7] = 0.0f;
-        viewMatrices[1][11] = 0.0f;
-        viewMatrices[1][15] = 1.0f;
-
-        multiplyMatrix<float>(viewProjection.viewMatrix, viewMatrices[0], viewMatrices[1]);
-
-        float frameBufferAspectRatio =
-                ((float) swapchainCreateInfo.imageExtent.width) / ((float) swapchainCreateInfo.imageExtent.height);
-
-        calculateProjectionMatrix<float>((float *) viewProjection.projectionMatrix, (3.1415956536f / 180.0f) * 60.0f,
-                                         frameBufferAspectRatio, 0.1f, 500.0f); // calculate perspective matrix
-
         vkCmdPushConstants(renderCommandBuffer, graphicsPipelineLayout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT, 0,
-                           sizeof(ViewProjectionMatrices),
+                           sizeof(ViewProjectionMatrices<float>),
                            &viewProjection);
 
 
@@ -2690,57 +2635,9 @@ void VulkanEngine::render(uint32_t drawableImageIndex) {
     vkCmdBindPipeline(renderCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsDebugPipeline);
 
     for (uint16_t meshIndex = 0; meshIndex < cachedScene->mNumMeshes; meshIndex++) {
-        float xRotation = (3.1415926536f / 180.0f) * 90.0f;
-        float yRotation = (3.1415926536 / 180) * elapsedTime / 10;
-
-        float viewMatrices[2][16];
-
-
-        viewMatrices[0][0] = 1.0f;
-        viewMatrices[0][4] = 0.0f;
-        viewMatrices[0][8] = 0.0f;
-        viewMatrices[0][12] = 0.00f;    // x translate
-        viewMatrices[0][1] = 0.0f;
-        viewMatrices[0][5] = 1.0f;
-        viewMatrices[0][9] = 0.0f;
-        viewMatrices[0][13] = 0.0f;        // y translate
-        viewMatrices[0][2] = 0.0f;
-        viewMatrices[0][6] = 0.0f;
-        viewMatrices[0][10] = 1.0f;
-        viewMatrices[0][14] = viewZTranslation;    // z translate
-        viewMatrices[0][3] = 0.0f;
-        viewMatrices[0][7] = 0.0f;
-        viewMatrices[0][11] = 0.0f;
-        viewMatrices[0][15] = 1.0f;
-
-        viewMatrices[1][0] = cos(yRotation);
-        viewMatrices[1][4] = 0.0f;
-        viewMatrices[1][8] = sin(yRotation);
-        viewMatrices[1][12] = 0.0f;
-        viewMatrices[1][1] = 0.0f;
-        viewMatrices[1][5] = 1.0f;
-        viewMatrices[1][9] = 0.0f;
-        viewMatrices[1][13] = 0.0f;
-        viewMatrices[1][2] = -sin(yRotation);
-        viewMatrices[1][6] = 0.0f;
-        viewMatrices[1][10] = cos(yRotation);
-        viewMatrices[1][14] = 0.0f;
-        viewMatrices[1][3] = 0.0f;
-        viewMatrices[1][7] = 0.0f;
-        viewMatrices[1][11] = 0.0f;
-        viewMatrices[1][15] = 1.0f;
-
-        multiplyMatrix<float>(viewProjection.viewMatrix, viewMatrices[0], viewMatrices[1]);
-
-        float frameBufferAspectRatio =
-                ((float) swapchainCreateInfo.imageExtent.width) / ((float) swapchainCreateInfo.imageExtent.height);
-
-        calculateProjectionMatrix<float>((float *) viewProjection.projectionMatrix, (3.1415956536f / 180.0f) * 60.0f,
-                                         frameBufferAspectRatio, 0.1f, 500.0f); // calculate perspective matrix
-
         vkCmdPushConstants(renderCommandBuffer, graphicsPipelineLayout,
                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT, 0,
-                           sizeof(ViewProjectionMatrices),
+                           sizeof(ViewProjectionMatrices<float>),
                            &viewProjection);
 
 
@@ -3001,16 +2898,16 @@ void VulkanEngine::loadMesh(const char *fileName) {
 
         for (int i = 0; i < numVertices; i++) {
 
-            attribute tmpAttribute = {};
-            memcpy(((byte *) &tmpAttribute) + offsetof(attribute, position),
+            Attribute<float> tmpAttribute = {};
+            memcpy(((byte *) &tmpAttribute) + offsetof(Attribute<float>, position),
                    &((aiVector3D *) (cachedScene->mMeshes[meshIndex]->mVertices))[i].x, 3 * sizeof(float));
-            memcpy(((byte *) &tmpAttribute) + offsetof(attribute, normal),
+            memcpy(((byte *) &tmpAttribute) + offsetof(Attribute<float>, normal),
                    &((aiVector3D *) (cachedScene->mMeshes[meshIndex]->mNormals))[i].x, 3 * sizeof(float));
-            memcpy(((byte *) &tmpAttribute) + offsetof(attribute, uv),
+            memcpy(((byte *) &tmpAttribute) + offsetof(Attribute<float>, uv),
                    &((aiVector3D *) (cachedScene->mMeshes[meshIndex]->mTextureCoords[0]))[i].x, 2 * sizeof(float));
-            memcpy(((byte *) &tmpAttribute) + offsetof(attribute, tangent),
+            memcpy(((byte *) &tmpAttribute) + offsetof(Attribute<float>, tangent),
                    &((aiVector3D *) (cachedScene->mMeshes[meshIndex]->mTangents))[i].x, 3 * sizeof(float));
-            memcpy(((byte *) &tmpAttribute) + offsetof(attribute, bitangent),
+            memcpy(((byte *) &tmpAttribute) + offsetof(Attribute<float>, bitangent),
                    &((aiVector3D *) (cachedScene->mMeshes[meshIndex]->mBitangents))[i].x, 3 * sizeof(float));
 
             sortedAttributes[meshIndex].push_back(tmpAttribute);
@@ -3023,7 +2920,7 @@ void VulkanEngine::loadMesh(const char *fileName) {
             }
         }
 
-        vertexBuffersSizes[meshIndex] = sortedAttributes[meshIndex].size() * sizeof(attribute);
+        vertexBuffersSizes[meshIndex] = sortedAttributes[meshIndex].size() * sizeof(Attribute<float>);
         indexBuffersSizes[meshIndex] = sortedIndices[meshIndex].size() * 4;
     }
 }
@@ -3316,34 +3213,34 @@ void VulkanEngine::createGraphicsNormalViewerPipeline() {
 
     vertexBindingDescription.binding = 0;
     vertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    vertexBindingDescription.stride = sizeof(attribute);
+    vertexBindingDescription.stride = sizeof(Attribute<float>);
 
     VkVertexInputAttributeDescription vertexAttributeDescriptions[5];
 
     vertexAttributeDescriptions[0].binding = 0;
     vertexAttributeDescriptions[0].location = 0;
     vertexAttributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributeDescriptions[0].offset = offsetof(attribute, position);
+    vertexAttributeDescriptions[0].offset = offsetof(Attribute<float>, position);
 
     vertexAttributeDescriptions[1].binding = 0;
     vertexAttributeDescriptions[1].location = 1;
     vertexAttributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributeDescriptions[1].offset = offsetof(attribute, normal);
+    vertexAttributeDescriptions[1].offset = offsetof(Attribute<float>, normal);
 
     vertexAttributeDescriptions[2].binding = 0;
     vertexAttributeDescriptions[2].location = 2;
     vertexAttributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-    vertexAttributeDescriptions[2].offset = offsetof(attribute, uv);
+    vertexAttributeDescriptions[2].offset = offsetof(Attribute<float>, uv);
 
     vertexAttributeDescriptions[3].binding = 0;
     vertexAttributeDescriptions[3].location = 3;
     vertexAttributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributeDescriptions[3].offset = offsetof(attribute, tangent);
+    vertexAttributeDescriptions[3].offset = offsetof(Attribute<float>, tangent);
 
     vertexAttributeDescriptions[4].binding = 0;
     vertexAttributeDescriptions[4].location = 4;
     vertexAttributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributeDescriptions[4].offset = offsetof(attribute, bitangent);
+    vertexAttributeDescriptions[4].offset = offsetof(Attribute<float>, bitangent);
 
     vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputStateCreateInfo.pNext = nullptr;
@@ -3457,3 +3354,4 @@ void VulkanEngine::createGraphicsNormalViewerPipeline() {
         throw VulkanException("Couldn't create graphics pipeline.");
 
 }
+

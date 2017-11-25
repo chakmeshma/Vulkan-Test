@@ -34,35 +34,37 @@
 #include "Vulkan Engine Exception.h"
 #include "shaderc_online_compiler.h"
 
+template<class T>
+struct Matrix {
+    T elements[16];
+};
 
-typedef struct {
-    float position[3];
-    float normal[3];
-    float uv[2];
-    float tangent[3];
-    float bitangent[3];
-} attribute;
+template<class T>
+struct Attribute {
+    T position[3];
+    T normal[3];
+    T uv[2];
+    T tangent[3];
+    T bitangent[3];
+};
 
-//const uint16_t MAX_DEFAULT_ARRAY_SIZE = 10;
-const uint16_t MAX_MESHES = 30;
+template<class T>
+struct ModelMatrix {
+    Matrix<T> modelMatrix;
+};
 
-//const uint16_t MAX_BUFFER_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
-//const uint16_t MAX_IMAGE_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
-//const uint16_t MAX_IMAGE_VIEW_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
-//const uint16_t MAX_DEVICE_MEMORY_ALLOCATION_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
-//const uint16_t MAX_SPARSE_IMAGE_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
-//const uint16_t MAX_SPARSE_IMAGE_MEMORY_REQUIREMENTS_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
-//const uint16_t MAX_SPARSE_IMAGE_FORMAT_PROPERTIES_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
-const uint16_t MAX_COLOR_TEXTURE_ARRAY_SIZE = MAX_MESHES;
-const uint16_t MAX_NORMAL_TEXTURE_ARRAY_SIZE = MAX_COLOR_TEXTURE_ARRAY_SIZE;
-const uint16_t MAX_SPECULAR_TEXTURE_ARRAY_SIZE = MAX_COLOR_TEXTURE_ARRAY_SIZE;
-const uint16_t MAX_UNIFORM_BUFFER_ARRAY_SIZE = MAX_MESHES;
-const uint16_t MAX_VERTEX_BUFFER_ARRAY_SIZE = MAX_UNIFORM_BUFFER_ARRAY_SIZE;
-const uint16_t MAX_INDEX_BUFFER_ARRAY_SIZE = MAX_UNIFORM_BUFFER_ARRAY_SIZE;
+template<class T>
+struct ViewProjectionMatrices {
+    Matrix<T> viewMatrix;
+    Matrix<T> projectionMatrix;
+};
+
+
 
 
 class VulkanEngine {
 public:
+
     VulkanEngine(HINSTANCE hInstance, HWND windowHandle, VulkanEngine **ppUnstableInstance);
 
     ~VulkanEngine() noexcept(false);
@@ -79,19 +81,79 @@ public:
 
     bool terminating = false;
 
-    struct ModelMatrix {
-        float modelMatrix[16];
-    };
 
-    struct ViewProjectionMatrices {
-        float viewMatrix[16];
-        float projectionMatrix[16];
-    };
+    ViewProjectionMatrices<float> viewProjection = {};
+    ModelMatrix<float> modelMatrix = {};
 
-    float viewZTranslation = -14.8f;
+    template<class T>
+    static void
+    calculateViewProjection(VulkanEngine *instance, T xTranslation, T yTranslation, T zTranslation, T yRotation) {
+        Matrix<T> viewMatrices[2];
+
+
+        viewMatrices[0].elements[0] = 1.0f;
+        viewMatrices[0].elements[4] = 0.0f;
+        viewMatrices[0].elements[8] = 0.0f;
+        viewMatrices[0].elements[12] = xTranslation;    // x translate
+        viewMatrices[0].elements[1] = 0.0f;
+        viewMatrices[0].elements[5] = 1.0f;
+        viewMatrices[0].elements[9] = 0.0f;
+        viewMatrices[0].elements[13] = yTranslation;        // y translate
+        viewMatrices[0].elements[2] = 0.0f;
+        viewMatrices[0].elements[6] = 0.0f;
+        viewMatrices[0].elements[10] = 1.0f;
+        viewMatrices[0].elements[14] = zTranslation;    // z translate
+        viewMatrices[0].elements[3] = 0.0f;
+        viewMatrices[0].elements[7] = 0.0f;
+        viewMatrices[0].elements[11] = 0.0f;
+        viewMatrices[0].elements[15] = 1.0f;
+
+        viewMatrices[1].elements[0] = cos(yRotation);
+        viewMatrices[1].elements[4] = 0.0f;
+        viewMatrices[1].elements[8] = sin(yRotation);
+        viewMatrices[1].elements[12] = 0.0f;
+        viewMatrices[1].elements[1] = 0.0f;
+        viewMatrices[1].elements[5] = 1.0f;
+        viewMatrices[1].elements[9] = 0.0f;
+        viewMatrices[1].elements[13] = 0.0f;
+        viewMatrices[1].elements[2] = -sin(yRotation);
+        viewMatrices[1].elements[6] = 0.0f;
+        viewMatrices[1].elements[10] = cos(yRotation);
+        viewMatrices[1].elements[14] = 0.0f;
+        viewMatrices[1].elements[3] = 0.0f;
+        viewMatrices[1].elements[7] = 0.0f;
+        viewMatrices[1].elements[11] = 0.0f;
+        viewMatrices[1].elements[15] = 1.0f;
+
+        multiplyMatrix<T>(&instance->viewProjection.viewMatrix, &viewMatrices[1], &viewMatrices[0]);
+
+        float frameBufferAspectRatio =
+                ((float) instance->swapchainCreateInfo.imageExtent.width) /
+                ((float) instance->swapchainCreateInfo.imageExtent.height);
+
+        calculateProjectionMatrix<float>((float *) instance->viewProjection.projectionMatrix.elements,
+                                         instance->fovAngle,
+                                         frameBufferAspectRatio, instance->zNear,
+                                         instance->zFar); // calculate perspective matrix
+    }
+
 private:
-    std::string resourcesPath = "..\\Resources\\";
-    //const char* meshesDirectoryPath = "C:\\Users\\chakm\\Desktop\\Bee Shader Resources\\Objects\\";
+    //static //const uint16_t MAX_DEFAULT_ARRAY_SIZE = 10;
+    static const uint16_t MAX_MESHES = 30;
+//    static //const uint16_t MAX_BUFFER_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+//    static //const uint16_t MAX_IMAGE_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+//    static //const uint16_t MAX_IMAGE_VIEW_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+//    static //const uint16_t MAX_DEVICE_MEMORY_ALLOCATION_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+//    static //const uint16_t MAX_SPARSE_IMAGE_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+//    static //const uint16_t MAX_SPARSE_IMAGE_MEMORY_REQUIREMENTS_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+//    static //const uint16_t MAX_SPARSE_IMAGE_FORMAT_PROPERTIES_ARRAY_SIZE = MAX_DEFAULT_ARRAY_SIZE;
+    static const uint16_t MAX_COLOR_TEXTURE_ARRAY_SIZE = MAX_MESHES;
+    static const uint16_t MAX_NORMAL_TEXTURE_ARRAY_SIZE = MAX_COLOR_TEXTURE_ARRAY_SIZE;
+    static const uint16_t MAX_SPECULAR_TEXTURE_ARRAY_SIZE = MAX_COLOR_TEXTURE_ARRAY_SIZE;
+    static const uint16_t MAX_UNIFORM_BUFFER_ARRAY_SIZE = MAX_MESHES;
+    static const uint16_t MAX_VERTEX_BUFFER_ARRAY_SIZE = MAX_UNIFORM_BUFFER_ARRAY_SIZE;
+    static const uint16_t MAX_INDEX_BUFFER_ARRAY_SIZE = MAX_UNIFORM_BUFFER_ARRAY_SIZE;
+
 
     uint32_t instanceExtensionsCount = 0;
     VkInstance instance;
@@ -190,14 +252,15 @@ private:
     VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {};
     VkSemaphore waitToPresentSemaphore;
     VkSemaphore indexAcquiredSemaphore;
+
     VkCommandPool renderCommandPool;
     VkCommandPool transferCommandPool;
     VkCommandBuffer renderCommandBuffer;
     VkFormat surfaceImageFormat;
     VkFormat depthFormat;
-    std::vector<attribute> sortedAttributes[MAX_VERTEX_BUFFER_ARRAY_SIZE];
+    std::vector<Attribute<float>> sortedAttributes[MAX_VERTEX_BUFFER_ARRAY_SIZE];
     std::vector<uint32_t> sortedIndices[MAX_INDEX_BUFFER_ARRAY_SIZE];
-    uint32_t totalUniformBufferSize = sizeof(ModelMatrix);
+    uint32_t totalUniformBufferSize = sizeof(ModelMatrix<float>);
     uint32_t indexBuffersSizes[MAX_INDEX_BUFFER_ARRAY_SIZE];
     uint32_t vertexBuffersSizes[MAX_VERTEX_BUFFER_ARRAY_SIZE];
     VkImage colorTextureImagesDevice[MAX_COLOR_TEXTURE_ARRAY_SIZE];
@@ -207,8 +270,8 @@ private:
     VkImage normalTextureImages[MAX_NORMAL_TEXTURE_ARRAY_SIZE];
     VkImageView normalTextureViews[MAX_NORMAL_TEXTURE_ARRAY_SIZE];
     VkImage specTextureImagesDevice[MAX_SPECULAR_TEXTURE_ARRAY_SIZE];
-    VkImage specTextureImages[MAX_SPECULAR_TEXTURE_ARRAY_SIZE];
 
+    VkImage specTextureImages[MAX_SPECULAR_TEXTURE_ARRAY_SIZE];
     VkImageView specTextureViews[MAX_SPECULAR_TEXTURE_ARRAY_SIZE];
     VkDeviceMemory depthImageMemory;
     VkDeviceMemory uniTexturesMemory;
@@ -233,7 +296,6 @@ private:
     VkDeviceSize *uniformBuffersBindOffsets;
     VkDeviceSize *vertexBuffersBindOffsets;
     VkDeviceSize *indexBuffersBindOffsets;
-    ViewProjectionMatrices viewProjection = {};
     aiScene *cachedScene = NULL;
     VkDescriptorSet meshDescriptorSets[MAX_MESHES];
     VkSampler textureSampler;
@@ -242,7 +304,6 @@ private:
     LARGE_INTEGER t1, t2;           // ticks
     double elapsedTime;
     bool inited = false;
-
 
 
     void init();
@@ -347,13 +408,13 @@ private:
     std::string loadShaderCode(const char *fileName);
 
     template<class T>
-    static void multiplyMatrix(T *result, T *left, T *right) {
+    static void multiplyMatrix(Matrix<T> *result, Matrix<T> *left, Matrix<T> *right) {
         for (uint8_t i = 0; i < 4; i++) {
             for (uint8_t j = 0; j < 4; j++) {
-                result[j * 4 + i] = static_cast<T>(0);
+                result->elements[j * 4 + i] = static_cast<T>(0);
 
                 for (uint8_t x = 0; x < 4; x++) {
-                    result[j * 4 + i] += left[x * 4 + i] * right[j * 4 + x];
+                    result->elements[j * 4 + i] += left->elements[x * 4 + i] * right->elements[j * 4 + x];
                 }
             }
         }
@@ -395,6 +456,14 @@ private:
     VkShaderModule graphicsNormalViewerGeometryShaderModule;
     VkShaderModule graphicsNormalViewerFragmentShaderModule;
     VkPipeline graphicsDebugPipeline;
+
+    std::string resourcesPath = "..\\Resources\\";
+    float fovAngle = (3.1415956536f / 180.0f) * 60.0f;
+    const float zNear = 0.1f;
+    const float zFar = 500.0f;
+    float initialModelScale = 1.0f;
+    float initialModelXRotation = 0.0;
+    float initialModelYRotation = 0.0f;
 };
 
 

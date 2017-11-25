@@ -3,7 +3,12 @@
 #include <thread>
 #include <iostream>
 #include "Vulkan Engine.h"
+
+#define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
+#define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
+
 //#define FULLSCREEN
+
 
 static bool vulkanInited = false;
 static VulkanEngine *engine = NULL;
@@ -11,6 +16,8 @@ static const char g_szClassName[] = "VulkanEngine Test Window Class";
 static HWND windowHandle = NULL;
 static VulkanEngine **pUnstableInstance = new VulkanEngine *;
 static bool quitMessagePosted = false;
+static int lastPosX = -1;
+static int lastPosY = -1;
 
 void deleteEngineOrUnstableEngine() {
     if (*pUnstableInstance != NULL)
@@ -36,6 +43,7 @@ BOOL WINAPI closeHandler(DWORD dwCtrlType) {
 bool initVulkanReal(HINSTANCE hInstance, HWND windowHandle) {
     try {
         engine = new VulkanEngine(hInstance, windowHandle, pUnstableInstance);
+        VulkanEngine::calculateViewProjection<float>(engine, 0.0f, 0.0f, -14.0f, 0.0f);
 
         if (engine != NULL)
             *pUnstableInstance = NULL;
@@ -89,7 +97,29 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
         case WM_MOUSEWHEEL:
             wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-            engine->viewZTranslation += ((float) wheelDelta / 120.0f);
+            engine->viewProjection.viewMatrix.elements[14] += ((float) wheelDelta / 120.0f);
+            break;
+        case WM_MBUTTONDOWN:
+            lastPosX = -1;
+            lastPosY = -1;
+            break;
+        case WM_MOUSEMOVE:
+            if ((wParam & MK_MBUTTON) != 0) {
+                int xPos = GET_X_LPARAM(lParam);
+                int yPos = GET_Y_LPARAM(lParam);
+                if (lastPosX == -1 || lastPosY == -1) {
+                    lastPosX = xPos;
+                    lastPosY = yPos;
+                }
+                int deltaX = xPos - lastPosX;
+                int deltaY = yPos - lastPosY;
+
+                lastPosX = xPos;
+                lastPosY = yPos;
+
+                engine->viewProjection.viewMatrix.elements[12] += deltaX;
+                engine->viewProjection.viewMatrix.elements[13] += deltaY;
+            }
             break;
         default:
             return DefWindowProc(hwnd, msg, wParam, lParam);

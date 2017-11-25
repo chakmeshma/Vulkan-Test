@@ -19,11 +19,7 @@ layout (location = 3) in vec3 iFragTan[];
 
 layout (location = 4) in vec3 iFragBitan[];
 
-const float normalLength = 13.13;
-
-in gl_PerVertex {
-	vec4 gl_Position;
-} gl_in[];
+const float normalLength = 1.13;
 
 layout (push_constant) uniform ViewProjection {
 	mat4 view;
@@ -45,7 +41,7 @@ void main() {
 	//vec3 lightDirectionViewSpace = (lightPos - fragPos);
 	
 
-	gl_Position = gl_in[0].gl_Position;
+	gl_Position = viewProjection.projection * vec4(iFragPos[0], 1.0);
 	
 	EmitVertex();
 	
