@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8.2)
-project(Vulkan_Test)
+project(Vulkan_Test C CXX)
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
@@ -36,14 +36,14 @@ function(create_resources dir coutput houtput)
 endfunction()
 
 include_directories(../../../../VulkanSDK/1.0.65.0/Include)
-include_directories(../../../../dev/msys64/home/chakmeshma/DevIL/DevIL/include)
+include_directories(../../../../Users/chakm/Desktop/DevIL/DevIL/include)
 include_directories(../../../../Users/chakm/Desktop/assimp/include)
 
 set(ASSIMP_LIB ${PROJECT_SOURCE_DIR}/../../Desktop/assimp/build/code/Release)
 
 #create_resources("Shader Resources" resources.c resources.h)
 
-set(SOURCE_FILES main.cpp "Vulkan Engine.cpp" "Vulkan Engine Exception.cpp" shaderc_online_compiler.cpp shaderc_online_compiler.h objects.h)
+set(SOURCE_FILES main.cpp "Vulkan Engine.cpp" "Vulkan Engine Exception.cpp" shaderc_online_compiler.cpp shaderc_online_compiler.h)
 
 add_library(shaderc SHARED IMPORTED)
 
@@ -52,7 +52,7 @@ set_property(TARGET shaderc PROPERTY IMPORTED_IMPLIB "${PROJECT_SOURCE_DIR}/../.
 
 add_executable(Vulkan_Test ${SOURCE_FILES})
 
-target_link_libraries(Vulkan_Test ${PROJECT_SOURCE_DIR}/../../../../VulkanSDK/1.0.65.0/Lib/vulkan-1.lib ${PROJECT_SOURCE_DIR}/../../../../dev/msys64/home/chakmeshma/DevIL/build/lib/x64/Release/DevIL.lib shaderc)
+target_link_libraries(Vulkan_Test ${PROJECT_SOURCE_DIR}/../../../../VulkanSDK/1.0.65.0/Lib/vulkan-1.lib ${PROJECT_SOURCE_DIR}/../../../../Users/chakm/Desktop/DevIL/Build/lib/x64/Release/DevIL.lib shaderc)
 #        ${PROJECT_SOURCE_DIR}/linkables/0_png.o
 #        ${PROJECT_SOURCE_DIR}/linkables/0n_png.o
 #        ${PROJECT_SOURCE_DIR}/linkables/0s_png.o

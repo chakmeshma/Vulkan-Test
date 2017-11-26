@@ -33,11 +33,14 @@
 #include <assimp/cimport.h>
 #include "Vulkan Engine Exception.h"
 #include "shaderc_online_compiler.h"
+#include "glm/glm/mat4x4.hpp"
+#include "glm/glm/vec3.hpp"
+#include "glm/glm/vec4.hpp"
+#include "glm/glm/gtc/matrix_transform.hpp"
+#include "glm/glm/gtx/euler_angles.hpp"
+#include "glm/glm/gtc/quaternion.hpp"
 
-template<class T>
-struct Matrix {
-    T elements[16];
-};
+using namespace glm;
 
 template<class T>
 struct Attribute {
@@ -50,16 +53,14 @@ struct Attribute {
 
 template<class T>
 struct ModelMatrix {
-    Matrix<T> modelMatrix;
+    mat4x4 modelMatrix;
 };
 
 template<class T>
 struct ViewProjectionMatrices {
-    Matrix<T> viewMatrix;
-    Matrix<T> projectionMatrix;
+    mat4x4 viewMatrix;
+    mat4x4 projectionMatrix;
 };
-
-
 
 
 class VulkanEngine {
@@ -81,62 +82,45 @@ public:
 
     bool terminating = false;
 
+    float focusDistance = -14.0f;
 
     ViewProjectionMatrices<float> viewProjection = {};
     ModelMatrix<float> modelMatrix = {};
 
-    template<class T>
-    static void
-    calculateViewProjection(VulkanEngine *instance, T xTranslation, T yTranslation, T zTranslation, T yRotation) {
-        Matrix<T> viewMatrices[2];
 
+    static void calculateViewProjection(VulkanEngine *instance) {
 
-        viewMatrices[0].elements[0] = 1.0f;
-        viewMatrices[0].elements[4] = 0.0f;
-        viewMatrices[0].elements[8] = 0.0f;
-        viewMatrices[0].elements[12] = xTranslation;    // x translate
-        viewMatrices[0].elements[1] = 0.0f;
-        viewMatrices[0].elements[5] = 1.0f;
-        viewMatrices[0].elements[9] = 0.0f;
-        viewMatrices[0].elements[13] = yTranslation;        // y translate
-        viewMatrices[0].elements[2] = 0.0f;
-        viewMatrices[0].elements[6] = 0.0f;
-        viewMatrices[0].elements[10] = 1.0f;
-        viewMatrices[0].elements[14] = zTranslation;    // z translate
-        viewMatrices[0].elements[3] = 0.0f;
-        viewMatrices[0].elements[7] = 0.0f;
-        viewMatrices[0].elements[11] = 0.0f;
-        viewMatrices[0].elements[15] = 1.0f;
+        mat4x4 rotationMatrix = glm::mat4(1.0f);
 
-        viewMatrices[1].elements[0] = cos(yRotation);
-        viewMatrices[1].elements[4] = 0.0f;
-        viewMatrices[1].elements[8] = sin(yRotation);
-        viewMatrices[1].elements[12] = 0.0f;
-        viewMatrices[1].elements[1] = 0.0f;
-        viewMatrices[1].elements[5] = 1.0f;
-        viewMatrices[1].elements[9] = 0.0f;
-        viewMatrices[1].elements[13] = 0.0f;
-        viewMatrices[1].elements[2] = -sin(yRotation);
-        viewMatrices[1].elements[6] = 0.0f;
-        viewMatrices[1].elements[10] = cos(yRotation);
-        viewMatrices[1].elements[14] = 0.0f;
-        viewMatrices[1].elements[3] = 0.0f;
-        viewMatrices[1].elements[7] = 0.0f;
-        viewMatrices[1].elements[11] = 0.0f;
-        viewMatrices[1].elements[15] = 1.0f;
+        rotationMatrix = glm::rotate(rotationMatrix, glm::radians(instance->focusYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+        rotationMatrix = glm::rotate(rotationMatrix, glm::radians(instance->focusPitch), glm::vec3(1.0f, 0.0f, 0.0f));
 
-        multiplyMatrix<T>(&instance->viewProjection.viewMatrix, &viewMatrices[1], &viewMatrices[0]);
+        glm::vec4 cameraPosition = rotationMatrix * glm::vec4(0.0, 0.0, -instance->focusDistance, 1.0);
+
+        glm::vec3 focusPoint(instance->focusPointX, instance->focusPointY, instance->focusPointZ);
+
+        instance->viewProjection.viewMatrix = glm::lookAt(glm::vec3(cameraPosition), focusPoint,
+                                                          glm::vec3(0.0f, 1.0f, 0.0f));
+
 
         float frameBufferAspectRatio =
                 ((float) instance->swapchainCreateInfo.imageExtent.width) /
                 ((float) instance->swapchainCreateInfo.imageExtent.height);
 
-        calculateProjectionMatrix<float>((float *) instance->viewProjection.projectionMatrix.elements,
-                                         instance->fovAngle,
-                                         frameBufferAspectRatio, instance->zNear,
-                                         instance->zFar); // calculate perspective matrix
+
+        instance->viewProjection.projectionMatrix = glm::perspective(glm::radians(instance->fovAngle),
+                                                                     frameBufferAspectRatio, instance->zNear,
+                                                                     instance->zFar);
     }
 
+    float focusPitch = 0.0f;
+    float focusYaw = 0.0f;
+//    float initialModelScale = 1.0f;
+//    float initialModelXRotation = 0.0;
+//    float initialModelYRotation = 0.0f;
+    float focusPointX = 0.0f;
+    float focusPointY = 0.0f;
+    float focusPointZ = 0.0f;
 private:
     //static //const uint16_t MAX_DEFAULT_ARRAY_SIZE = 10;
     static const uint16_t MAX_MESHES = 30;
@@ -407,49 +391,6 @@ private:
 
     std::string loadShaderCode(const char *fileName);
 
-    template<class T>
-    static void multiplyMatrix(Matrix<T> *result, Matrix<T> *left, Matrix<T> *right) {
-        for (uint8_t i = 0; i < 4; i++) {
-            for (uint8_t j = 0; j < 4; j++) {
-                result->elements[j * 4 + i] = static_cast<T>(0);
-
-                for (uint8_t x = 0; x < 4; x++) {
-                    result->elements[j * 4 + i] += left->elements[x * 4 + i] * right->elements[j * 4 + x];
-                }
-            }
-        }
-    }
-
-
-    template<class T>
-    static void calculateProjectionMatrix(T *matrix, T const &fovy, T const &aspect, T const &zNear, T const &zFar) {
-        ASSERT(aspect != static_cast<T>(0));
-        ASSERT(zFar != zNear);
-
-        T const rad = fovy;
-        T const tanHalfFovy = tan(rad / static_cast<T>(2));
-
-        //float Result[4][4];
-        matrix[0] = static_cast<T>(1) / (aspect * tanHalfFovy);
-        matrix[1] = static_cast<T>(0);
-        matrix[2] = static_cast<T>(0);
-        matrix[3] = static_cast<T>(0);
-        matrix[4] = static_cast<T>(0);
-        matrix[5] = static_cast<T>(1) / (tanHalfFovy);
-        matrix[6] = static_cast<T>(0);
-        matrix[7] = static_cast<T>(0);
-        matrix[8] = static_cast<T>(0);
-        matrix[9] = static_cast<T>(0);
-        matrix[10] = -(zFar + zNear) / (zFar - zNear);
-        matrix[11] = -static_cast<T>(1);
-        matrix[12] = static_cast<T>(0);
-        matrix[13] = static_cast<T>(0);
-        matrix[14] = -(static_cast<T>(2) * zFar * zNear) / (zFar - zNear);
-        matrix[15] = static_cast<T>(0);
-
-        return;
-    }
-
     void createGraphicsNormalViewerPipeline();
 
     VkShaderModule graphicsNormalViewerVertexShaderModule;
@@ -461,9 +402,7 @@ private:
     float fovAngle = (3.1415956536f / 180.0f) * 60.0f;
     const float zNear = 0.1f;
     const float zFar = 500.0f;
-    float initialModelScale = 1.0f;
-    float initialModelXRotation = 0.0;
-    float initialModelYRotation = 0.0f;
+
 };
 
 

@@ -1146,64 +1146,7 @@ void VulkanEngine::createAllBuffers() {
     VKASSERT_SUCCESS(vkMapMemory(logicalDevices[0], uniBuffersMemory, 0, VK_WHOLE_SIZE, 0, &mappedMemory));
 
     for (uint16_t meshIndex = 0; meshIndex < cachedScene->mNumMeshes; meshIndex++) {
-        Matrix<float> modelMatrices[3];
-        Matrix<float> temp;
-
-        modelMatrices[0].elements[0] = 1.0f;
-        modelMatrices[0].elements[4] = 0.0f;
-        modelMatrices[0].elements[8] = 0.0f;
-        modelMatrices[0].elements[12] = 0.0f;
-        modelMatrices[0].elements[1] = 0.0f;
-        modelMatrices[0].elements[5] = cosf(initialModelXRotation);
-        modelMatrices[0].elements[9] = -sinf(initialModelXRotation);
-        modelMatrices[0].elements[13] = 0.0f;
-        modelMatrices[0].elements[2] = 0.0f;
-        modelMatrices[0].elements[6] = sinf(initialModelXRotation);
-        modelMatrices[0].elements[10] = cosf(initialModelXRotation);
-        modelMatrices[0].elements[14] = 0.0f;
-        modelMatrices[0].elements[3] = 0.0f;
-        modelMatrices[0].elements[7] = 0.0f;
-        modelMatrices[0].elements[11] = 0.0f;
-        modelMatrices[0].elements[15] = 1.0f;
-
-        modelMatrices[1].elements[0] = cosf(initialModelYRotation);
-        modelMatrices[1].elements[4] = 0.0f;
-        modelMatrices[1].elements[8] = sinf(initialModelYRotation);
-        modelMatrices[1].elements[12] = 0.0f;
-        modelMatrices[1].elements[1] = 0.0f;
-        modelMatrices[1].elements[5] = 1.0f;
-        modelMatrices[1].elements[9] = 0.0f;
-        modelMatrices[1].elements[13] = 0.0f;
-        modelMatrices[1].elements[2] = -sinf(initialModelYRotation);
-        modelMatrices[1].elements[6] = 0.0f;
-        modelMatrices[1].elements[10] = cosf(initialModelYRotation);
-        modelMatrices[1].elements[14] = 0.0f;
-        modelMatrices[1].elements[3] = 0.0f;
-        modelMatrices[1].elements[7] = 0.0f;
-        modelMatrices[1].elements[11] = 0.0f;
-        modelMatrices[1].elements[15] = 1.0f;
-
-        modelMatrices[2].elements[0] = initialModelScale;
-        modelMatrices[2].elements[4] = 0.0f;
-        modelMatrices[2].elements[8] = 00.0f;
-        modelMatrices[2].elements[12] = 0.0f;
-        modelMatrices[2].elements[1] = 0.0f;
-        modelMatrices[2].elements[5] = initialModelScale;
-        modelMatrices[2].elements[9] = 0.0f;
-        modelMatrices[2].elements[13] = 0.0f;
-        modelMatrices[2].elements[2] = 0.0f;
-        modelMatrices[2].elements[6] = 0.0f;
-        modelMatrices[2].elements[10] = initialModelScale;
-        modelMatrices[2].elements[14] = 0.0f;
-        modelMatrices[2].elements[3] = 0.0f;
-        modelMatrices[2].elements[7] = 0.0f;
-        modelMatrices[2].elements[11] = 0.0f;
-        modelMatrices[2].elements[15] = 1.0f;
-
-
-        multiplyMatrix<float>(&temp, &modelMatrices[2], &modelMatrices[0]);
-
-        multiplyMatrix<float>(&modelMatrix.modelMatrix, &temp, &modelMatrices[1]);
+        modelMatrix.modelMatrix = glm::mat4x4(1.0f);
 
         memcpy((byte *) mappedMemory + uniformBuffersBindOffsetsDevice[meshIndex], &modelMatrix,
                totalUniformBufferSize);
